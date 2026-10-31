@@ -1,6 +1,6 @@
 # 공공데이터 주간 빌드 → GitHub Pages(음식점 격자 타일 /v1/tiles/{i}_{j}.json)
 # 패턴: StrangeRecords/FactBokAI의 예약 Actions(cron + workflow_dispatch), TechLog의 Pages 배포.
-# 시·도 17개를 병렬 작업으로 나눠 받는다(한 작업 6시간 제한·하루 호출 한도 10,000회 안쪽, D-043).
+# 시·도 16개를 병렬 작업으로 나눠 받는다(한 작업 6시간 제한·하루 호출 한도 10,000회 안쪽, D-043).
 # 하나라도 실패하면 배포하지 않으므로 이전 Pages 산출물이 그대로 유지된다(fail-closed).
 #
 # 필요한 것(사용자 할 일 — README §사용자가 직접 할 일)
@@ -51,7 +51,8 @@ jobs:
       fail-fast: false # 한 지역의 일시 오류로 나머지가 취소되지 않게(실패한 지역만 'Re-run failed jobs')
       max-parallel: 6 # API에 한꺼번에 몰리지 않게
       matrix:
-        sido: [서울특별시, 부산광역시, 대구광역시, 인천광역시, 광주광역시, 대전광역시, 울산광역시, 세종특별자치시, 경기도, 강원특별자치도, 충청북도, 충청남도, 전북특별자치도, 전라남도, 경상북도, 경상남도, 제주특별자치도]
+        # data-build/src/fetch-api.ts SIDO와 같게(2026-10-31 확인: 광주·전남 → 전남광주통합특별시)
+        sido: [서울특별시, 부산광역시, 대구광역시, 인천광역시, 대전광역시, 울산광역시, 세종특별자치시, 경기도, 강원특별자치도, 충청북도, 충청남도, 전북특별자치도, 전남광주통합특별시, 경상북도, 경상남도, 제주특별자치도]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

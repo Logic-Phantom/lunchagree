@@ -14,10 +14,13 @@ const ROOT = resolve(import.meta.dirname, '..');
 const UA = 'Mozilla/5.0 (jeomsimhabui data-build)';
 const DELAY_MS = 120;
 
-/** 현행 시·도 공식 명칭(도로명주소 첫 단어). ⚠ 원본 표기는 --probe로 확인(특히 강원·전북 특별자치도 개칭). */
+/**
+ * 원본 도로명주소의 첫 단어(시·도). 2026-10-31 실제 API로 확인한 16곳 — 광주광역시·전라남도는 '전남광주통합특별시'로 통합 표기돼 있다.
+ * 행정구역이 바뀌면 --probe가 출력하는 regionTotals로 확인해 고친다(영업 중 0~수 건이면 명칭이 바뀐 것).
+ */
 export const SIDO = [
-  '서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
-  '경기도', '강원특별자치도', '충청북도', '충청남도', '전북특별자치도', '전라남도', '경상북도', '경상남도', '제주특별자치도',
+  '서울특별시', '부산광역시', '대구광역시', '인천광역시', '대전광역시', '울산광역시', '세종특별자치시',
+  '경기도', '강원특별자치도', '충청북도', '충청남도', '전북특별자치도', '전남광주통합특별시', '경상북도', '경상남도', '제주특별자치도',
 ];
 export const FOCUS_SIDO = ['서울특별시', '경기도'];
 
@@ -125,6 +128,15 @@ async function probe(key: string): Promise<void> {
     report.example ??= slim(page.items[0] ?? {});
     await sleep(DELAY_MS);
   }
+  // 시·도 명칭 점검: 영업 중 건수가 너무 적으면 명칭이 바뀐 것(예: 광주·전남 통합)
+  const regionTotals: Record<string, number> = {};
+  for (const sido of SIDO) {
+    regionTotals[sido] = (await callPage(key, 1, { 'cond[ROAD_NM_ADDR::LIKE]': sido, 'cond[SALS_STTS_CD::EQ]': '01' })).total;
+    await sleep(DELAY_MS);
+  }
+  report.regionTotals = regionTotals;
+  const suspicious = Object.entries(regionTotals).filter(([, n]) => n < 1000).map(([k]) => k);
+  if (suspicious.length) console.warn(`⚠ 영업 중 건수가 1,000 미만인 시·도: ${suspicious.join(', ')} — 행정구역 명칭이 바뀌었는지 확인하세요.`);
   report.statusValues = [...codes].sort((a, b) => b[1] - a[1]);
   report.businessTypes = [...types].sort((a, b) => b[1] - a[1]);
   report.sidoNames = [...sidoSeen];

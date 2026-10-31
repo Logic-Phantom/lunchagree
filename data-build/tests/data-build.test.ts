@@ -143,11 +143,13 @@ describe('fetch-api', () => {
     expect(() => parsePage({ nope: 1 })).toThrow(ApiError);
   });
 
-  it('필요한 필드만 남긴다(전화번호 등 버림), 기본 수집 범위는 전국 17개 시·도', () => {
+  it('필요한 필드만 남긴다(전화번호 등 버림), 기본 수집 범위는 전국 16개 시·도(광주·전남 통합)', () => {
     const s = slim({ [COLUMNS.name]: '가게', TELNO: '02-000-0000', ML_PRCTR_CNT: '3' });
     expect(s[COLUMNS.name]).toBe('가게');
     expect('TELNO' in s).toBe(false);
-    expect(SIDO).toHaveLength(17);
+    expect(SIDO).toHaveLength(16);
+    expect(SIDO).toContain('전남광주통합특별시');
+    expect(SIDO).not.toContain('광주광역시');
   });
 });
 
