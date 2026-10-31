@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     strategy:
-      fail-fast: true
+      fail-fast: false # 한 지역의 일시 오류로 나머지가 취소되지 않게(실패한 지역만 'Re-run failed jobs')
       max-parallel: 6 # API에 한꺼번에 몰리지 않게
       matrix:
         sido: [서울특별시, 부산광역시, 대구광역시, 인천광역시, 광주광역시, 대전광역시, 울산광역시, 세종특별자치시, 경기도, 강원특별자치도, 충청북도, 충청남도, 전북특별자치도, 전라남도, 경상북도, 경상남도, 제주특별자치도]

@@ -56,10 +56,39 @@ export function slim(item: Item): Item {
   return Object.fromEntries(KEEP_FIELDS.map((k) => [k, String(item[k] ?? '').trim()]));
 }
 
+/** 네트워크 오류(연결 끊김·시간 초과)와 5xx는 일시적이라 다시 시도한다. 인증·한도 등 API 오류는 바로 멈춘다. */
+export class TransientError extends Error {}
+const RETRIES = 5;
+const REQUEST_TIMEOUT_MS = 30_000;
+
+export async function withRetry<T>(fn: () => Promise<T>, retries = RETRIES, baseMs = 2000): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!(e instanceof TransientError) || attempt >= retries) throw e;
+      const wait = baseMs * 2 ** (attempt - 1);
+      console.warn(`  일시 오류(${e.message}) — ${wait / 1000}초 뒤 다시 시도 ${attempt}/${retries - 1}`);
+      await new Promise((ok) => setTimeout(ok, wait));
+    }
+  }
+}
+
 async function callPage(key: string, pageNo: number, cond: Record<string, string>): Promise<Page> {
+  return withRetry(() => callPageOnce(key, pageNo, cond));
+}
+
+async function callPageOnce(key: string, pageNo: number, cond: Record<string, string>): Promise<Page> {
   const qs = new URLSearchParams({ serviceKey: key, pageNo: String(pageNo), numOfRows: String(API.maxRows), returnType: 'json', ...cond });
-  const res = await fetch(`${API.endpoint}?${qs}`, { headers: { 'User-Agent': UA } });
-  const text = await res.text();
+  let res: Response;
+  let text: string;
+  try {
+    res = await fetch(`${API.endpoint}?${qs}`, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    text = await res.text();
+  } catch (e) {
+    throw new TransientError((e as Error).message);
+  }
+  if (res.status >= 500) throw new TransientError(`HTTP ${res.status}`);
   if (!res.ok) throw new ApiError(`HTTP ${res.status}: ${text.slice(0, 200)}`);
   try {
     return parsePage(JSON.parse(text));

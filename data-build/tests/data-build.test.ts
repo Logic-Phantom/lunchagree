@@ -4,7 +4,7 @@ import { haversineMeters } from '../../app/src/domain/distance.ts';
 import { tileKey, tilesAround } from '../../app/src/domain/tiles.ts';
 import { buildTiles, toTileRow } from '../src/build.ts';
 import { COLUMNS } from '../src/column-map.ts';
-import { ApiError, normalizeServiceKey, parsePage, SIDO, slim } from '../src/fetch-api.ts';
+import { ApiError, normalizeServiceKey, parsePage, SIDO, slim, TransientError, withRetry } from '../src/fetch-api.ts';
 import { mergeRows } from '../src/reference-points.ts';
 import { CRS_DEFS, toWgs84 } from '../src/reproject.ts';
 import { tagFor } from '../src/tag.ts';
@@ -117,6 +117,25 @@ describe('fetch-api', () => {
     expect(normalizeServiceKey('ab%2Bcd%2Fef%3D%3D')).toBe('ab+cd/ef==');
     expect(normalizeServiceKey(' ab+cd/ef== ')).toBe('ab+cd/ef==');
     expect(normalizeServiceKey('100%')).toBe('100%'); // 잘못된 % 표기는 그대로
+  });
+
+  it('일시 오류는 다시 시도하고, API 오류는 바로 멈춘다', async () => {
+    let n = 0;
+    const flaky = async () => {
+      n += 1;
+      if (n < 3) throw new TransientError('fetch failed');
+      return 'ok';
+    };
+    await expect(withRetry(flaky, 5, 1)).resolves.toBe('ok');
+    expect(n).toBe(3);
+    let m = 0;
+    const auth = async () => {
+      m += 1;
+      throw new ApiError('SERVICE_KEY_IS_NOT_REGISTERED_ERROR');
+    };
+    await expect(withRetry(auth, 5, 1)).rejects.toThrow(ApiError);
+    expect(m).toBe(1);
+    await expect(withRetry(async () => { throw new TransientError('x'); }, 3, 1)).rejects.toThrow(TransientError);
   });
 
   it('오류 코드는 멈춘다', () => {
