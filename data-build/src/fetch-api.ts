@@ -37,6 +37,20 @@ export function parsePage(body: unknown): Page {
   return { total: Number(res.body?.totalCount ?? 0), items };
 }
 
+/**
+ * 포털은 같은 키를 '인코딩'(%2B·%2F·%3D 포함)과 '디코딩' 두 형태로 보여 준다. 요청할 때 URLSearchParams가 다시 인코딩하므로
+ * 인코딩 형태를 그대로 쓰면 이중 인코딩돼 SERVICE_KEY_IS_NOT_REGISTERED_ERROR가 난다 → 어느 쪽을 넣어도 디코딩 형태로 맞춘다.
+ */
+export function normalizeServiceKey(raw: string): string {
+  const key = raw.trim();
+  if (!/%[0-9A-Fa-f]{2}/.test(key)) return key;
+  try {
+    return decodeURIComponent(key);
+  } catch {
+    return key;
+  }
+}
+
 /** 필요한 필드만 남긴다(전화번호·종사자 수 등 버림). */
 export function slim(item: Item): Item {
   return Object.fromEntries(KEEP_FIELDS.map((k) => [k, String(item[k] ?? '').trim()]));
@@ -117,7 +131,7 @@ async function fetchRegion(key: string, dir: string, region: string, openCode: s
 }
 
 if (import.meta.main) {
-  const key = process.env.DATA_GO_KR_KEY;
+  const key = normalizeServiceKey(process.env.DATA_GO_KR_KEY ?? '');
   if (!key) {
     console.error('✗ DATA_GO_KR_KEY가 없어요. data.go.kr에서 15154916 활용신청 후 받은 "일반 인증키(Decoding)"를 data-build/.env 또는 환경변수로 넣어 주세요.');
     process.exit(1);
@@ -140,7 +154,7 @@ if (import.meta.main) {
     try {
       for (const region of regions) total += await fetchRegion(key, dir, region, openCode);
     } catch (e) {
-      console.error(`✗ ${(e as Error).message}\n  여기까지 저장했어요. 같은 명령에 --date ${dir.slice(-8)} 를 붙여 다시 실행하면 이어 받아요.`);
+      console.error(`✗ ${(e as Error).message}\n  여기까지 저장했어요. 같은 명령에 --date ${dir.slice(dir.lastIndexOf('_') + 1)} 를 붙여 다시 실행하면 이어 받아요.`);
       process.exit(1);
     }
     writeFileSync(join(dir, '_meta.json'), JSON.stringify({ source: 'data.go.kr 15154916', fetchedAt: new Date().toISOString(), openCode, regions, calls: total }, null, 2));

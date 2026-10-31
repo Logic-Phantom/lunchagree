@@ -4,7 +4,7 @@ import { haversineMeters } from '../../app/src/domain/distance.ts';
 import { tileKey, tilesAround } from '../../app/src/domain/tiles.ts';
 import { buildTiles, toTileRow } from '../src/build.ts';
 import { COLUMNS } from '../src/column-map.ts';
-import { ApiError, parsePage, SIDO, slim } from '../src/fetch-api.ts';
+import { ApiError, normalizeServiceKey, parsePage, SIDO, slim } from '../src/fetch-api.ts';
 import { mergeRows } from '../src/reference-points.ts';
 import { CRS_DEFS, toWgs84 } from '../src/reproject.ts';
 import { tagFor } from '../src/tag.ts';
@@ -111,6 +111,12 @@ describe('fetch-api', () => {
     expect(parsePage(ok({ item: { a: '1' } })).items).toHaveLength(1);
     expect(parsePage(ok('')).items).toEqual([]);
     expect(parsePage(ok('')).total).toBe(3);
+  });
+
+  it('서비스 키는 인코딩·디코딩 어느 형태로 넣어도 디코딩 형태로 맞춘다(이중 인코딩 방지)', () => {
+    expect(normalizeServiceKey('ab%2Bcd%2Fef%3D%3D')).toBe('ab+cd/ef==');
+    expect(normalizeServiceKey(' ab+cd/ef== ')).toBe('ab+cd/ef==');
+    expect(normalizeServiceKey('100%')).toBe('100%'); // 잘못된 % 표기는 그대로
   });
 
   it('오류 코드는 멈춘다', () => {
