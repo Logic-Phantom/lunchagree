@@ -1,5 +1,5 @@
 // 원본 행 → 영업 중 Place. 필터(영업상태) · 좌표 변환 · 종류 태그. 순수 함수(테스트 대상).
-import { COLUMNS, OPEN_STATUS_VALUES } from './column-map.ts';
+import { COLUMNS, EXCLUDED_BUSINESS_TYPES, OPEN_STATUS_VALUES } from './column-map.ts';
 import { SOURCE_CRS, toWgs84, type CrsName } from './reproject.ts';
 import { tagFor } from './tag.ts';
 
@@ -31,7 +31,7 @@ export function toPlaces(rows: Record<string, string>[], baseDate: string, crs: 
   const places: Place[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
-    if (!isOpen(row)) {
+    if (!isOpen(row) || EXCLUDED_BUSINESS_TYPES.includes(row[COLUMNS.businessType] ?? '')) {
       stats.notOpen += 1;
       continue;
     }

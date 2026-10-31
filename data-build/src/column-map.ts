@@ -28,8 +28,9 @@ export const KEEP_FIELDS: string[] = Object.values(COLUMNS);
 
 export const REQUIRED: (keyof typeof COLUMNS)[] = ['id', 'name', 'status', 'x', 'y'];
 
-/**
- * '영업'으로 볼 영업상태명. ⚠ 실데이터 미확인 — `npm run fetch:api -- --probe`가 출력하는 실제 코드·이름 분포를 보고 확정한다.
- * (LOCALDATA 시절 값은 '영업/정상')
- */
-export const OPEN_STATUS_VALUES = ['영업/정상', '영업'];
+/** '영업'으로 볼 영업상태명. 확인(2026-10-31 --probe): 코드 01 = '영업/정상'(상세 '영업'), 03 = '폐업'. */
+export const OPEN_STATUS_VALUES = ['영업/정상'];
+export const OPEN_STATUS_CODE = '01';
+
+/** 점심 장소가 아닌 업태(무점포 출장조리·주점)는 후보에서 뺀다. 실제 값은 --probe로 확인. */
+export const EXCLUDED_BUSINESS_TYPES = ['출장조리', '감성주점'];

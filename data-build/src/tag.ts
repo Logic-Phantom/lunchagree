@@ -1,5 +1,5 @@
 // 업태 → 앱 음식 종류 태그(app/src/domain/lunch-policy.ts FOOD_TAGS의 id).
-// 업태 값 목록은 Phase 0에서 실데이터(report.ts businessTypes)로 확인해 이 표를 맞춘다.
+// 업태 값은 --probe로 확인(2026-10-31: 기타·한식·분식·호프/통닭·일식·식육(숯불구이)·중국식·경양식·외국음식전문점(인도,태국등)·횟집·뷔페식·푸드트럭·김밥(도시락) 등).
 // 업태가 없거나 '기타'면 사업장명 규칙으로 추정하고 tagSource='estimated'로 표시한다.
 
 const BY_BUSINESS_TYPE: Record<string, string> = {
@@ -8,6 +8,7 @@ const BY_BUSINESS_TYPE: Record<string, string> = {
   일식: 'japanese',
   경양식: 'western',
   외국음식전문점: 'asian',
+  '외국음식전문점(인도,태국등)': 'asian', // 실제 원본 표기(2026-10-31 --probe)
   분식: 'snack',
   김밥: 'snack',
   '김밥(도시락)': 'snack',

@@ -5,7 +5,7 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { COLUMNS } from './column-map.ts';
-import { CRS_DEFS, toWgs84, type CrsName } from './reproject.ts';
+import { CRS_DEFS, SOURCE_CRS, toWgs84, type CrsName } from './reproject.ts';
 import { haversineMeters as haversine } from '../../app/src/domain/distance.ts';
 import { median } from './validate.ts';
 
@@ -57,5 +57,10 @@ if (import.meta.main) {
   mkdirSync(join(ROOT, 'out'), { recursive: true });
   writeFileSync(join(ROOT, 'out', 'crs-check.json'), JSON.stringify({ dir, ...result }, null, 2));
   console.log(result);
-  console.log(result.confirmed ? `→ ${result.best} 확정: reproject.ts SOURCE_CRS를 맞추세요.` : '→ 판정 보류: 표본·차이가 부족해요(docs/DATA_SOURCES.md에 기록).');
+  if (result.confirmed && result.best !== SOURCE_CRS) {
+    // 빌드에 쓰는 좌표계와 실측이 다르면 잘못된 위치로 배포하지 않게 멈춘다
+    console.error(`✗ 실측은 ${result.best}인데 reproject.ts SOURCE_CRS는 ${SOURCE_CRS}예요. 맞춘 뒤 다시 빌드하세요.`);
+    process.exit(1);
+  }
+  console.log(result.confirmed ? `✓ ${result.best} 확인(SOURCE_CRS와 일치)` : '→ 판정 보류: 표본·차이가 부족해요(빌드는 SOURCE_CRS로 계속).');
 }

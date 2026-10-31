@@ -1,12 +1,12 @@
-# 공공데이터 주간 빌드 → GitHub Pages(정적 후보 샤드 /v1/...)
+# 공공데이터 주간 빌드 → GitHub Pages(음식점 격자 타일 /v1/tiles/{i}_{j}.json)
 # 패턴: StrangeRecords/FactBokAI의 예약 Actions(cron + workflow_dispatch), TechLog의 Pages 배포.
-# 실패하면 배포 단계까지 가지 않으므로 이전 Pages 산출물이 그대로 유지된다(fail-closed).
+# 시·도 17개를 병렬 작업으로 나눠 받는다(한 작업 6시간 제한·하루 호출 한도 10,000회 안쪽, D-043).
+# 하나라도 실패하면 배포하지 않으므로 이전 Pages 산출물이 그대로 유지된다(fail-closed).
 #
 # 필요한 것(사용자 할 일 — README §사용자가 직접 할 일)
 #   - Repository secret   DATA_GO_KR_KEY       : data.go.kr '행정안전부_식품_일반음식점 조회서비스'(15154916) 일반 인증키(Decoding). 커밋 금지.
-#   - Repository variable RESTAURANT_OPEN_CODE : 영업상태코드(로컬에서 npm run data:fetch -- --probe 로 확인한 값)
+#   - Repository variable RESTAURANT_OPEN_CODE : 영업상태코드 '01'(2026-10-31 --probe 확인)
 #   - Settings → Pages → Source: GitHub Actions
-# 좌표계 판정용 기준점(fixtures/reference-points.json)은 커밋된 산출물을 쓴다(원본 갱신 시 로컬에서 npm run data:refpoints).
 name: Data Build
 
 on:
@@ -25,11 +25,55 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     outputs:
       ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "$DATA_GO_KR_KEY" ] && [ -n "$OPEN_CODE" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::DATA_GO_KR_KEY 또는 RESTAURANT_OPEN_CODE가 없어 빌드를 건너뜀. 이전 Pages 산출물 유지."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}
+
+  fetch:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: true
+      max-parallel: 6 # API에 한꺼번에 몰리지 않게
+      matrix:
+        sido: [서울특별시, 부산광역시, 대구광역시, 인천광역시, 광주광역시, 대전광역시, 울산광역시, 세종특별자치시, 경기도, 강원특별자치도, 충청북도, 충청남도, 전북특별자치도, 전라남도, 경상북도, 경상남도, 제주특별자치도]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: 수집(영업 중만)
+        run: npm run fetch:api --workspace data-build -- --open-code "$OPEN_CODE" --regions "${{ matrix.sido }}" --date run
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raw-${{ strategy.job-index }}
+          path: data-build/raw/15154916_일반음식점_run/*.ndjson
+          retention-days: 3
+
+  build:
+    needs: fetch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,41 +82,27 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test --workspace data-build
-      - name: 키·영업코드 확인
-        id: check
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: raw-*
+          merge-multiple: true
+          path: data-build/raw/15154916_일반음식점_run
+      - name: 기준일 폴더 이름 맞추기
+        run: mv "data-build/raw/15154916_일반음식점_run" "data-build/raw/15154916_일반음식점_$(TZ=Asia/Seoul date +%Y%m%d)"
+      - name: 좌표계 검증 + 타일 빌드
         run: |
-          if [ -n "$DATA_GO_KR_KEY" ] && [ -n "$OPEN_CODE" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::DATA_GO_KR_KEY 또는 RESTAURANT_OPEN_CODE가 없어 빌드를 건너뜀(Phase 0 대기). 이전 Pages 산출물 유지."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-          OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}
-      - name: 음식점 수집(전국 17개 시·도, 영업 중만 — 한도에 걸리면 실패, 다음 실행에서 새로 받음)
-        if: steps.check.outputs.ready == 'true'
-        run: npm run fetch:api --workspace data-build -- --open-code "$OPEN_CODE"
-        env:
-          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-          OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}
-      - name: 좌표계 검증 + 샤드 빌드
-        if: steps.check.outputs.ready == 'true'
-        run: |
-          mkdir -p data-build/out
           npm run verify:crs --workspace data-build
           npm run data:build
       - uses: actions/upload-pages-artifact@v3
-        if: steps.check.outputs.ready == 'true'
         with:
           path: data-build/out
 
   deploy:
     needs: build
-    if: needs.build.outputs.ready == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
