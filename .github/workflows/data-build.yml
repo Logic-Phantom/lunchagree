@@ -1,0 +1,66 @@
+# 공공데이터 주간 빌드 → GitHub Pages(정적 후보 샤드 /v1/...)
+# 패턴: StrangeRecords/FactBokAI의 일일·주간 Actions(cron + workflow_dispatch), TechLog의 Pages 배포.
+# 실패하면 배포 단계까지 가지 않으므로 이전 Pages 산출물이 그대로 유지된다(fail-closed).
+#
+# 필요한 것(사용자 할 일 — README §사용자가 직접 할 일)
+#   - Repository secret DATA_GO_KR_KEY : data.go.kr 서비스 키(API 방식 확정 후). 커밋 금지.
+#   - Settings → Pages → Source: GitHub Actions
+#   - Phase 0 완료 전에는 원본 수집(fetch) 단계가 없어 수동 실행만 의미가 있다.
+name: Data Build
+
+on:
+  schedule:
+    # 매주 월요일 03:17 KST (정각 혼잡 회피)
+    - cron: "17 18 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: data-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test --workspace data-build
+      - name: 원본 확인
+        id: raw
+        run: |
+          if ls data-build/raw/15045016_*.csv >/dev/null 2>&1 && [ -f data-build/fixtures/station-coords.json ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::원본 CSV 또는 역 좌표가 없어 빌드를 건너뜀(Phase 0 대기). 이전 Pages 산출물 유지."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+      - name: 샤드 빌드
+        if: steps.raw.outputs.ready == 'true'
+        run: npm run data:build
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.raw.outputs.ready == 'true'
+        with:
+          path: data-build/out
+
+  deploy:
+    needs: build
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true # 아티팩트가 없으면(빌드 건너뜀) 배포도 건너뛴다

@@ -1,0 +1,24 @@
+{
+  "name": "jeomsimhabui",
+  "private": true,
+  "workspaces": [
+    "packages/room-core",
+    "data-build",
+    "app"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace app",
+    "build": "npm run build --workspace app",
+    "build:ait": "npm run build:ait --workspace app",
+    "test": "npm run test --workspace packages/room-core && npm run test --workspace data-build && npm run test --workspace app",
+    "typecheck": "npm run typecheck --workspace packages/room-core && npm run typecheck --workspace data-build && npm run typecheck --workspace app",
+    "data:build": "npm run build --workspace data-build",
+    "data:report": "npm run report --workspace data-build",
+    "licenses": "node scripts/generate-oss-licenses.mjs",
+    "icons": "python scripts/build-app-icons.py",
+    "test:sql": "npm run test:sql --workspace packages/room-core"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

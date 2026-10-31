@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.ait
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vite/
+coverage/
+# data.go.kr 원본(용량 큼) — 기준일 포함 파일명으로 로컬 보관, 샤드 산출물만 Pages로 배포
+data-build/raw/*
+!data-build/raw/README.md
+data-build/out/
+.claude/

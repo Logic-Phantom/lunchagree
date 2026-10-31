@@ -1,0 +1,29 @@
+# 점심합의 CI — 푸시·PR마다 테스트·타입 검사·SQL(RLS) 검사·앱 빌드
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Supabase 마이그레이션 + RLS 테스트 (PGlite)
+        run: npm run test:sql
+      - name: 앱 빌드 (오픈소스 라이선스 감사 포함 — GPL/AGPL 발견 시 실패)
+        run: npm run build

@@ -1,0 +1,21 @@
+{
+  "name": "@jeomsimhabui/room-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "방·토큰·참여·만료·투표 공통 모듈(순수 TS). 사잇 Phase 5와 공유하되 저장소 간 import 대신 복사한다.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "test:sql": "node scripts/run-sql-tests.ts"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.13",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

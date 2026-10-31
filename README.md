@@ -1,0 +1,116 @@
+# 점심합의 - 같이 정하는 오늘 점심
+
+<img src="assets/brand/console-icon-600.png" alt="점심합의 앱 아이콘" width="96" />
+
+**오늘 점심, 우리끼리 빠르게 정하자.**
+조건 모으기 · 식당 추천 · 다 같이 투표 — LUNCH AGREEMENT
+
+방장이 방을 만들어 링크를 돌리면 동료들이 가입 없이 예산·못 먹는 것·걷기 한도를 넣고, 앱이 조건을 통과한 후보를 좁혀 투표로 끝내는 **토스 미니앱(앱인토스 WebView)**. 기획 원문: [docs/SUPER_PROMPT.md](docs/SUPER_PROMPT.md)
+
+> **현재 상태 (2026-10-31)** — 프로젝트 구조·아키텍처·MVP 화면 1차 구현.
+> - 앱 전체 흐름(홈 → 방 만들기 → 조건 → 추천 → 투표 → 결과 → 공유)을 **한 기기 모드**로 브라우저에서 확인. `.ait` 패키지 빌드 성공.
+> - 공유 방(Supabase) 스키마·RPC·RLS는 **PGlite(실제 Postgres)로 실행·통과**, Supabase 실프로젝트 연결은 아직(키 없음).
+> - 음식점 후보 데이터(공공데이터 샤드)는 **Phase 0 전 — 지금은 '직접 추가'만**. 가짜 식당·데모 데이터는 넣지 않았다.
+> - 토스앱(샌드박스·QR) 확인 전, 콘솔 미등록.
+
+## 화면
+
+온보딩 가이드([docs/design/onboarding-guide.png](docs/design/onboarding-guide.png))의 01~06 레이아웃·스타일(흰 바탕 · 남색 필 버튼 · 외곽선 필 · 연회색 패널 · 아이콘 노란 포인트)을 그대로 구현했다. 시안의 별점·가격·음식 사진은 없는 데이터라 "종류 · 약 N분(추정) · 가격 미확인/직접 입력"과 자체 음식 종류 그림으로 바꿨다(D-015).
+
+| 01 방 만들기 | 02 참가자 & 조건 | 03 식당 후보 추천 |
+|---|---|---|
+| <img src="docs/screenshots/01-home.jpg" width="220" /> | <img src="docs/screenshots/02-create.jpg" width="220" /> | <img src="docs/screenshots/03-candidates.jpg" width="220" /> |
+| **04 투표하기** | **05 결과 확인** | **06 공유 & 기록** |
+| <img src="docs/screenshots/04-vote.jpg" width="220" /> | <img src="docs/screenshots/05-result.jpg" width="220" /> | <img src="docs/screenshots/06-share.jpg" width="220" /> |
+
+(캡처의 '테스트 ○○' 가게는 브라우저 확인용으로 직접 입력한 값이다.)
+
+## 상태표
+`구현` = 코드 있음 · `자동 테스트 통과` · `브라우저 확인` = 개발 서버 375/360px · `샌드박스 확인` · `토스앱 확인`
+
+| 영역 | 상태 | 비고 |
+|---|---|---|
+| 모노레포 구조(app · data-build · packages/room-core), CI | 구현 | `.github/workflows/ci.yml` — test·typecheck·test:sql·build |
+| 앱 아이콘·로고·파비콘·OG·콘솔 로고(사용자 아이콘 원본에서 생성) | 구현 | `npm run icons`, D-017 |
+| 도메인 엔진(그룹 조건·하드 필터·못 먹는 것 판정·점수·이유 문장·투표) | 자동 테스트 통과 | app 11개, 가짜 후보 생성 없음 테스트 포함 |
+| room-core(토큰·해시·짧은 코드·만료·닉네임·상태 전이·투표 집계·링크) | 자동 테스트 통과 | 13개 |
+| Supabase 마이그레이션·RPC·RLS | 자동 테스트 통과(PGlite) | `npm run test:sql`. **Supabase 실프로젝트 미실행** |
+| data-build(CSV·영업 필터·EPSG:5174→WGS84·종류 태그·1km 샤드·게이트) | 자동 테스트 통과 | 8개. **실제 원본 미수집 — 컬럼명 미확인(D-026)** |
+| 홈 · 방 만들기 · 조건 입력(바텀시트) · 기준역 검색(초성) | 브라우저 확인 | 한 기기 모드 |
+| 추천 결과 · 후보 직접 추가 · 다른 후보 보기 · 후보 부족 안내 | 브라우저 확인 | 주변 음식점 고르기는 샤드 배포 후 |
+| 투표(한 기기 모드 돌려 입력) · 결과 · 동률 처리 · 공유 · 기록 · 설정 | 브라우저 확인 | 동률 화면은 코드·단위 테스트만 |
+| 360px 가로 스크롤 없음 | 브라우저 확인 | 7개 화면 |
+| 공유 방(remote 모드: 링크·코드 참여, 5초 폴링) | 구현 | Supabase 키 연결 후 확인 |
+| 토스 SDK(공유 링크·클립보드·익명 키·진입 링크) | 구현 | 3.9.0 타입 확인, **토스앱 미확인** |
+| `.ait` 빌드 | 확인 | `npm run build:ait` → `app/jeomsimhabui.ait` |
+| 인앱 광고(Phase 4) · 가격 힌트(Phase 5) · 실시간 장소 검색(Phase 6) | ❌ 미착수 | 광고 자리만(`ADS_ENABLED=false`) |
+
+## 구조
+
+```
+lunchagree/
+├─ app/                      토스 미니앱 (Vite + React + TS + @apps-in-toss/web-framework 3.9.0)
+│  ├─ apps-in-toss.config.ts appName 'jeomsimhabui'
+│  └─ src/ domain · data · features · platform · storage · ads · routes · components · styles
+├─ packages/room-core/       방·토큰·참여·만료·투표 공통(순수 TS) + supabase/migrations · tests
+├─ data-build/               공공데이터 → 역별 1km 후보 샤드(GitHub Pages)
+├─ scripts/                  build-app-icons.py · generate-oss-licenses.mjs
+├─ assets/brand/             아이콘 원본·콘솔 로고
+└─ docs/                     DECISIONS · ARCHITECTURE · DATA_SOURCES · PLACE_DATA_POLICY · CONSENSUS_ALGORITHM ·
+                             TOSS_COMPLIANCE · PRIVACY · SECURITY · LICENSES · TESTING · design/ · screenshots/
+```
+자세한 그림: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+## 실행
+요구: Node.js 24+ (아이콘 재생성은 Python + Pillow)
+```bash
+npm install
+```
+```bash
+npm run dev
+```
+```bash
+npm test && npm run typecheck && npm run test:sql && npm run build
+```
+```bash
+npm run build:ait
+```
+
+환경변수(`app/.env`, 예시 `app/.env.example`): `VITE_SUPABASE_URL`·`VITE_SUPABASE_ANON_KEY`(없으면 한 기기 모드), `VITE_PLACES_BASE_URL`(없으면 후보 직접 추가만).
+
+## 다른 프로젝트에서 가져온 것
+| 가져온 것 | 출처 |
+|---|---|
+| 토스 SDK 감싸기 · 저장소 어댑터 · 해시 라우팅 · 진입 링크 · 아이콘/라이선스 스크립트 · 문서 형식 | 사잇(`saeit`) |
+| Supabase RLS · security definer RPC · fail-closed 설정 · SQL 테스트 형식 | 컷픽(`Cutpick/supabase`) |
+| 예약 실행 GitHub Actions(cron + 수동, 정각 회피, concurrency) | 기묘한 기록(`StrangeRecords/.github`) |
+| 지하철역 ID·이름 | 사잇 `graph.v1.json` (복사, 저장소 간 import 없음) |
+
+## 사용자가 직접 할 일
+1. data.go.kr에서 '행정안전부_식품_일반음식점'(15045016) 원본 받기 → `data-build/raw/15045016_일반음식점_YYYYMMDD.csv` (API 방식이면 서비스 키를 GitHub Secret `DATA_GO_KR_KEY`에, 커밋 금지)
+2. Supabase 무료 프로젝트 생성 → 마이그레이션 적용, URL·anon key 전달(service_role 키 전달·커밋 금지), pg_cron으로 `purge_expired_rooms()` 하루 1회
+3. 앱인토스 콘솔 등록(appName `jeomsimhabui` 사용 가능 여부 확인) · QR 테스트 · 출시 요청 — `docs/TOSS_COMPLIANCE.md`
+4. 외부 지도 앱 링크 허용 여부 채널톡 문의(필요 시)
+5. '점심합의'·'LUNCH AGREEMENT' KIPRIS 확인, 로고 결합형 상표 출원 여부 결정
+6. GitHub Pages(Source: GitHub Actions) 켜기 — 후보 샤드 배포용
+
+## 다음 할 일
+- **Phase 0**: 원본 컬럼·영업상태·업태 값 확인(`npm run data:report`), 역 좌표 출처 결정, 측정 역 10곳 게이트(중앙값 ≥100, 태그 ≥70%)
+- 사잇과 `room-core` 공유 순서 확정(현재 점심합의에서 먼저 만듦 — D-029)
+- Supabase 실프로젝트에서 RPC 호출·폴링 확인, 두 기기 참여·투표 E2E(QR `intoss-private://`)
+- 토스앱에서 뒤로가기·공유 링크·initialURL 진입 확인
+
+---
+
+## Work Log
+
+### 2026-10-31 — 프로젝트 구조·아키텍처·MVP 화면 1차
+- **구조**: npm workspaces 모노레포(`app` · `data-build` · `packages/room-core`), 사잇과 같은 스택(Vite 8 · React 19 · TS 7 · SDK 3.9.0). `CLAUDE.md` 작업 규칙, docs 11종(결정 30건 D-001~D-030).
+- **브랜드**: 사용자 제공 아이콘(`assets/brand/icon-source.png`)에서 콘솔 로고 600px(흰 배경·둥글림 없음)·앱 로고·워드마크·파비콘·OG 이미지 생성. 원본의 넓은 그림자 때문에 floodfill 대신 회색 테두리 선 스캔으로 경계 검출(D-017).
+- **디자인**: 온보딩 가이드 01~06 레이아웃을 그대로 구현 — 디자인 토큰(`design-tokens.css`), 자체 아이콘·아바타·음식 종류 그림. 시안의 별점·가격·사진·이동 정보·카카오톡 버튼은 데이터·정책상 대체(D-014~D-016).
+- **도메인 엔진**: 그룹 조건(예산·걷기 최솟값, 못 먹는 것 합집합, 좋아요 정규화) → 하드 필터(자동 완화 없음, 막힌 이유 그룹 수준) → 점수(0.7 좋아요 + 0.3 거리, 비노출) → 이유 문장 → 투표(동률 자동 결정 없음).
+- **공유 방**: `room-core`(128bit 토큰·SHA-256·6자리 코드·만료 23:59 KST/12h) + Supabase 스키마(RLS 정책 0개, security definer RPC만, 개인 조건 비노출 그룹 요약). PGlite로 마이그레이션·RLS 테스트 실제 실행 — 일부러 깨뜨리면 실패하는 것까지 확인.
+- **두 모드**: Supabase 키가 없으면 '한 기기 모드'(방장 폰으로 참가자 추가·돌려 입력, 서버 전송 없음)로 전체 흐름 동작.
+- **data-build**: CSV 파서 · 영업 필터 · EPSG:5174→WGS84(proj4) · 업태/이름 기반 종류 태그 · 역별 1km 샤드 · 필수 컬럼·Phase 0 게이트 검증 · 주간 Actions → Pages(실패 시 이전 산출물 유지). 원본 컬럼명은 미확인이라 한 파일(`column-map.ts`)에 모으고 없으면 빌드 실패.
+- **검증**: 자동 테스트 32개(room-core 13 · data-build 8 · app 11) + SQL/RLS 테스트, 타입 검사, 빌드(오픈소스 13개 MIT·ISC·Apache-2.0), `.ait` 빌드. 브라우저(375·360px)에서 전체 흐름·가로 스크롤·콘솔 오류 0 확인. 확인 중 발견한 하단 고정 버튼 사라짐(`overflow-x: hidden`이 sticky를 깸)을 `clip`으로 수정.
+- **미확인**: Supabase 실프로젝트, 토스앱(샌드박스·QR), 공공데이터 실데이터, 역 좌표, EPSG 변환 실주소 오차.

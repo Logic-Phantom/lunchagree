@@ -1,0 +1,22 @@
+{
+  "name": "@jeomsimhabui/data-build",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "fetch": "node src/fetch.ts",
+    "build": "node src/build.ts",
+    "report": "node src/report.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "proj4": "^2.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/proj4": "^2.5.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
