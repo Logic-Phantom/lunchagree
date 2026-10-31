@@ -2,6 +2,9 @@
 import { COLUMNS, REQUIRED } from './column-map.ts';
 import type { Place } from './transform.ts';
 
+// Phase 0 측정 역(프롬프트 §9 제안 10곳). 사용자 지정 시 교체.
+export const FOCUS_STATIONS = ['강남', '역삼', '선릉', '삼성', '여의도', '광화문', '시청', '을지로입구', '판교', '구로디지털단지'];
+
 export const GATE = { medianPerStation: 100, tagCoverage: 0.7 } as const;
 
 export function missingColumns(header: string[]): string[] {

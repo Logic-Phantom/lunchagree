@@ -1,11 +1,12 @@
 # 공공데이터 주간 빌드 → GitHub Pages(정적 후보 샤드 /v1/...)
-# 패턴: StrangeRecords/FactBokAI의 일일·주간 Actions(cron + workflow_dispatch), TechLog의 Pages 배포.
+# 패턴: StrangeRecords/FactBokAI의 예약 Actions(cron + workflow_dispatch), TechLog의 Pages 배포.
 # 실패하면 배포 단계까지 가지 않으므로 이전 Pages 산출물이 그대로 유지된다(fail-closed).
 #
 # 필요한 것(사용자 할 일 — README §사용자가 직접 할 일)
-#   - Repository secret DATA_GO_KR_KEY : data.go.kr 서비스 키(API 방식 확정 후). 커밋 금지.
+#   - Repository secret   DATA_GO_KR_KEY       : data.go.kr '행정안전부_식품_일반음식점 조회서비스'(15154916) 일반 인증키(Decoding). 커밋 금지.
+#   - Repository variable RESTAURANT_OPEN_CODE : 영업상태코드(로컬에서 npm run data:fetch -- --probe 로 확인한 값)
 #   - Settings → Pages → Source: GitHub Actions
-#   - Phase 0 완료 전에는 원본 수집(fetch) 단계가 없어 수동 실행만 의미가 있다.
+# 역 좌표(fixtures/station-coords.json)는 커밋된 산출물을 쓴다(원본 갱신 시 로컬에서 npm run data:stations).
 name: Data Build
 
 on:
@@ -26,7 +27,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,32 +38,41 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test --workspace data-build
-      - name: 원본 확인
-        id: raw
+      - name: 키·영업코드 확인
+        id: check
         run: |
-          if ls data-build/raw/15045016_*.csv >/dev/null 2>&1 && [ -f data-build/fixtures/station-coords.json ]; then
+          if [ -n "$DATA_GO_KR_KEY" ] && [ -n "$OPEN_CODE" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::원본 CSV 또는 역 좌표가 없어 빌드를 건너뜀(Phase 0 대기). 이전 Pages 산출물 유지."
+            echo "::warning::DATA_GO_KR_KEY 또는 RESTAURANT_OPEN_CODE가 없어 빌드를 건너뜀(Phase 0 대기). 이전 Pages 산출물 유지."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-      - name: 샤드 빌드
-        if: steps.raw.outputs.ready == 'true'
-        run: npm run data:build
+          OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}
+      - name: 음식점 수집(역이 있는 65개 시·군·구, 영업 중만)
+        if: steps.check.outputs.ready == 'true'
+        run: npm run fetch:api --workspace data-build -- --open-code "$OPEN_CODE"
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}
+      - name: 좌표계 검증 + 샤드 빌드
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          mkdir -p data-build/out
+          npm run verify:crs --workspace data-build
+          npm run data:build
       - uses: actions/upload-pages-artifact@v3
-        if: steps.raw.outputs.ready == 'true'
+        if: steps.check.outputs.ready == 'true'
         with:
           path: data-build/out
 
   deploy:
     needs: build
-    if: needs.build.result == 'success'
+    if: needs.build.outputs.ready == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-        continue-on-error: true # 아티팩트가 없으면(빌드 건너뜀) 배포도 건너뛴다

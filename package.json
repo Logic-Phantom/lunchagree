@@ -13,10 +13,12 @@
     "test": "npm run test --workspace packages/room-core && npm run test --workspace data-build && npm run test --workspace app",
     "typecheck": "npm run typecheck --workspace packages/room-core && npm run typecheck --workspace data-build && npm run typecheck --workspace app",
     "data:build": "npm run build --workspace data-build",
-    "data:report": "npm run report --workspace data-build",
     "licenses": "node scripts/generate-oss-licenses.mjs",
     "icons": "python scripts/build-app-icons.py",
-    "test:sql": "npm run test:sql --workspace packages/room-core"
+    "test:sql": "npm run test:sql --workspace packages/room-core",
+    "data:stations": "npm run stations --workspace data-build",
+    "data:fetch": "npm run fetch:api --workspace data-build --",
+    "data:crs": "npm run verify:crs --workspace data-build"
   },
   "engines": {
     "node": ">=24"

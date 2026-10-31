@@ -4,9 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "fetch": "node src/fetch.ts",
+    "stations": "node src/stations.ts",
+    "fetch:file": "node src/fetch-file.ts",
+    "fetch:api": "node --env-file-if-exists=.env src/fetch-api.ts",
+    "verify:crs": "node src/verify-crs.ts",
     "build": "node src/build.ts",
-    "report": "node src/report.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

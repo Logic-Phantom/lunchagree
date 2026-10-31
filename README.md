@@ -7,10 +7,10 @@
 
 방장이 방을 만들어 링크를 돌리면 동료들이 가입 없이 예산·못 먹는 것·걷기 한도를 넣고, 앱이 조건을 통과한 후보를 좁혀 투표로 끝내는 **토스 미니앱(앱인토스 WebView)**. 기획 원문: [docs/SUPER_PROMPT.md](docs/SUPER_PROMPT.md)
 
-> **현재 상태 (2026-10-31)** — 프로젝트 구조·아키텍처·MVP 화면 1차 구현.
+> **현재 상태 (2026-10-31)** — 프로젝트 구조·아키텍처·MVP 화면 1차 구현 + **Phase 0 진행 중(서비스 키 대기)**.
 > - 앱 전체 흐름(홈 → 방 만들기 → 조건 → 추천 → 투표 → 결과 → 공유)을 **한 기기 모드**로 브라우저에서 확인. `.ait` 패키지 빌드 성공.
 > - 공유 방(Supabase) 스키마·RPC·RLS는 **PGlite(실제 Postgres)로 실행·통과**, Supabase 실프로젝트 연결은 아직(키 없음).
-> - 음식점 후보 데이터(공공데이터 샤드)는 **Phase 0 전 — 지금은 '직접 추가'만**. 가짜 식당·데모 데이터는 넣지 않았다.
+> - Phase 0: 음식점 원본을 **공식 API(15154916)로 확정·필드 확인**, **역 좌표 578/581역 확보**. 음식점 수집·좌표계 판정·게이트 측정은 **data.go.kr 서비스 키가 있어야** 진행 가능 — 그 전까지 후보는 '직접 추가'만. 가짜 식당·데모 데이터는 넣지 않았다.
 > - 토스앱(샌드박스·QR) 확인 전, 콘솔 미등록.
 
 ## 화면
@@ -35,7 +35,9 @@
 | 도메인 엔진(그룹 조건·하드 필터·못 먹는 것 판정·점수·이유 문장·투표) | 자동 테스트 통과 | app 11개, 가짜 후보 생성 없음 테스트 포함 |
 | room-core(토큰·해시·짧은 코드·만료·닉네임·상태 전이·투표 집계·링크) | 자동 테스트 통과 | 13개 |
 | Supabase 마이그레이션·RPC·RLS | 자동 테스트 통과(PGlite) | `npm run test:sql`. **Supabase 실프로젝트 미실행** |
-| data-build(CSV·영업 필터·EPSG:5174→WGS84·종류 태그·1km 샤드·게이트) | 자동 테스트 통과 | 8개. **실제 원본 미수집 — 컬럼명 미확인(D-026)** |
+| data-build(API 수집기·역 좌표 매칭·XLSX 리더·영업 필터·좌표 변환 2종·좌표계 판정·종류 태그·1km 샤드·게이트) | 자동 테스트 통과 | 16개. 필드명은 공식 Swagger로 확인(D-032) |
+| Phase 0 역 좌표(국가철도공단 역사정보) | ✅ 실행 | 578/581역, 수집 지역 65곳 — `docs/DATA_SOURCES.md` |
+| Phase 0 음식점 수집 · 좌표계 판정(5174 vs 2097) · 게이트(중앙값 ≥100, 태그 ≥70%) | ⏳ **서비스 키 대기** | `npm run data:fetch -- --probe` 부터 |
 | 홈 · 방 만들기 · 조건 입력(바텀시트) · 기준역 검색(초성) | 브라우저 확인 | 한 기기 모드 |
 | 추천 결과 · 후보 직접 추가 · 다른 후보 보기 · 후보 부족 안내 | 브라우저 확인 | 주변 음식점 고르기는 샤드 배포 후 |
 | 투표(한 기기 모드 돌려 입력) · 결과 · 동률 처리 · 공유 · 기록 · 설정 | 브라우저 확인 | 동률 화면은 코드·단위 테스트만 |
@@ -72,6 +74,19 @@ npm run dev
 ```bash
 npm test && npm run typecheck && npm run test:sql && npm run build
 ```
+데이터(Phase 0):
+```bash
+npm run data:stations
+```
+```bash
+npm run data:fetch -- --probe
+```
+```bash
+npm run data:fetch -- --open-code <영업상태코드> --focus
+```
+```bash
+npm run data:crs && npm run data:build
+```
 ```bash
 npm run build:ait
 ```
@@ -87,7 +102,7 @@ npm run build:ait
 | 지하철역 ID·이름 | 사잇 `graph.v1.json` (복사, 저장소 간 import 없음) |
 
 ## 사용자가 직접 할 일
-1. data.go.kr에서 '행정안전부_식품_일반음식점'(15045016) 원본 받기 → `data-build/raw/15045016_일반음식점_YYYYMMDD.csv` (API 방식이면 서비스 키를 GitHub Secret `DATA_GO_KR_KEY`에, 커밋 금지)
+1. data.go.kr에서 **'행정안전부_식품_일반음식점 조회서비스'(15154916) 활용신청** → 일반 인증키(Decoding)를 `data-build/.env`에 `DATA_GO_KR_KEY=…`로 저장(git 제외)하고 GitHub Secret `DATA_GO_KR_KEY`에도 등록(커밋 금지). 키를 넣은 뒤 `npm run data:fetch -- --probe` 결과의 영업상태 코드를 Repository variable `RESTAURANT_OPEN_CODE`에 등록
 2. Supabase 무료 프로젝트 생성 → 마이그레이션 적용, URL·anon key 전달(service_role 키 전달·커밋 금지), pg_cron으로 `purge_expired_rooms()` 하루 1회
 3. 앱인토스 콘솔 등록(appName `jeomsimhabui` 사용 가능 여부 확인) · QR 테스트 · 출시 요청 — `docs/TOSS_COMPLIANCE.md`
 4. 외부 지도 앱 링크 허용 여부 채널톡 문의(필요 시)
@@ -95,7 +110,7 @@ npm run build:ait
 6. GitHub Pages(Source: GitHub Actions) 켜기 — 후보 샤드 배포용
 
 ## 다음 할 일
-- **Phase 0**: 원본 컬럼·영업상태·업태 값 확인(`npm run data:report`), 역 좌표 출처 결정, 측정 역 10곳 게이트(중앙값 ≥100, 태그 ≥70%)
+- **Phase 0 마무리(키 필요)**: `npm run data:fetch -- --probe` → `-- --open-code <코드> --focus` → `npm run data:crs` → `npm run data:build`로 측정 역 10곳 게이트 판정
 - 사잇과 `room-core` 공유 순서 확정(현재 점심합의에서 먼저 만듦 — D-029)
 - Supabase 실프로젝트에서 RPC 호출·폴링 확인, 두 기기 참여·투표 E2E(QR `intoss-private://`)
 - 토스앱에서 뒤로가기·공유 링크·initialURL 진입 확인
@@ -114,3 +129,11 @@ npm run build:ait
 - **data-build**: CSV 파서 · 영업 필터 · EPSG:5174→WGS84(proj4) · 업태/이름 기반 종류 태그 · 역별 1km 샤드 · 필수 컬럼·Phase 0 게이트 검증 · 주간 Actions → Pages(실패 시 이전 산출물 유지). 원본 컬럼명은 미확인이라 한 파일(`column-map.ts`)에 모으고 없으면 빌드 실패.
 - **검증**: 자동 테스트 32개(room-core 13 · data-build 8 · app 11) + SQL/RLS 테스트, 타입 검사, 빌드(오픈소스 13개 MIT·ISC·Apache-2.0), `.ait` 빌드. 브라우저(375·360px)에서 전체 흐름·가로 스크롤·콘솔 오류 0 확인. 확인 중 발견한 하단 고정 버튼 사라짐(`overflow-x: hidden`이 sticky를 깸)을 `clip`으로 수정.
 - **미확인**: Supabase 실프로젝트, 토스앱(샌드박스·QR), 공공데이터 실데이터, 역 좌표, EPSG 변환 실주소 오차.
+
+### 2026-10-31 — Phase 0: 데이터 출처 확정 · 역 좌표 확보
+- **음식점 원본 경로 변경**: 기획서의 파일 15045016은 다운로드 링크(LOCALDATA)가 2026-04-16 서비스 종료로 403. 통합된 **공식 API 15154916**(`apis.data.go.kr/1741000/general_restaurants/info`, 일간 갱신)을 찾아 Swagger로 응답 필드 39개를 확인하고, 이전 코드의 추정 한글 컬럼명을 실제 필드명(`BPLC_NM`·`SALS_STTS_CD`·`CRD_INFO_X/Y`·`BZSTAT_SE_NM` 등)으로 교체. 전화번호·종사자 수 등은 저장하지 않음(D-031·D-032).
+- **좌표계 모순 발견**: 포털 설명이 "보정계수 안 들어간 … EPSG:5174"라고 적었지만 5174는 보정이 들어간 정의(미보정은 2097). 차이 약 250m라 두 정의를 모두 두고, 역 안 매장 ↔ 역 좌표 거리로 판정하는 `verify-crs.ts` 작성(D-033).
+- **역 좌표 확보**: 국가철도공단 도시광역철도 역사정보(철도데이터포털, 2026-06-30, 1,099행)를 받아 사잇 581역 중 **578역** 매칭(양평 5호선/경의중앙선은 괄호 노선 힌트로 분리). 의존성 없는 XLSX 리더 작성. 역사 주소에서 수집 지역 **65개 시·군·구** 산출, 표기 차이(`서울시`·`충남`·오타·옛 구 이름) 보정(D-034·D-035).
+- **수집기**: `fetch-api.ts`(`--probe` 탐색 / `--open-code` 전체 / `--focus` 측정 지역만, 지역 단위 이어받기, 한도 오류 시 중단), `fetch-file.ts`(사잇 파일데이터 수집기 이식). 빌드는 NDJSON 수집본 기준으로 변경, CSV 경로 삭제. data-build.yml은 키·영업 코드가 있을 때만 실행(D-036).
+- **검증**: data-build 테스트 16개(좌표계 판정·동명이역·지역 보정·API 응답 파싱·필드 최소화 포함), 타입 검사 통과. 키 없이 실행하면 수집·빌드가 안내 문구와 함께 멈추는 것 확인.
+- **막힌 것**: 음식점 수집·좌표계 판정·게이트 측정은 data.go.kr 서비스 키(사용자 계정 활용신청)가 필요.

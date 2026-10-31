@@ -29,8 +29,14 @@
 | D-023 | 그룹 요약을 **서버 SQL(get_room_state)과 TS(aggregatePreferences)가 같은 규칙으로** 각각 계산 | 서버는 개인 조건을 내보내지 않아야 하고, 한 기기 모드는 서버가 없음. 두 구현의 일치는 rls_test.sql(예산 최솟값·합집합·좋아요 수)과 domain.test.ts로 확인 |
 | D-024 | SQL 검증 = **PGlite(WASM Postgres)** 로 마이그레이션 + `rls_test.sql` 실행(`npm run test:sql`, CI 포함) | Docker·psql·Supabase CLI가 없는 환경에서도 실제 Postgres로 실행. anon 역할·기본 테이블 권한만 흉내 → Supabase 실프로젝트에서 한 번 더 확인 필요 |
 | D-025 | 방 만료 = 당일 23:59 KST 또는 12시간 중 이른 시각(TS·SQL 동일), 정리는 `purge_expired_rooms()`를 pg_cron 하루 1회 | 프롬프트 §4. pg_cron 등록은 Supabase 프로젝트 생성 후 사용자 확인 |
-| D-026 | 공공데이터 원본 컬럼명은 `data-build/src/column-map.ts` 한 곳, **현재 값은 LOCALDATA 시절 표기(미확인)**. 필수 컬럼이 없으면 빌드 실패 | 2026-01 포털 통합 후 컬럼명 변경 가능성 — Phase 0 `npm run data:report`로 확인 |
-| D-027 | EPSG:5174 → WGS84는 proj4(MIT) + `towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43` | 국내에서 널리 쓰는 Bessel→WGS84 7변수. **실주소 3곳 대조(오차 ≤30m)는 Phase 0** |
-| D-028 | 역 ID·이름은 사잇 `graph.v1.json`(역 581개)에서 **복사**(`data-build/fixtures/stations-saeit.json`, `app/src/data/stations.v1.json`). 좌표는 없음 → Phase 0에서 좌표 출처 결정 | 프롬프트 §10 '같은 역 ID 체계', 저장소 간 import 금지 |
+| D-026 | 공공데이터 원본 필드명은 `data-build/src/column-map.ts` 한 곳. 필수 필드가 없으면 빌드 실패 | (D-032로 갱신) |
+| D-027 | Bessel 중부원점 → WGS84는 proj4(MIT) + `towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43` | 국내에서 널리 쓰는 Bessel→WGS84 7변수. 원점 정의는 D-033 |
+| D-028 | 역 ID·이름은 사잇 `graph.v1.json`(역 581개)에서 **복사**(`data-build/fixtures/stations-saeit.json`, `app/src/data/stations.v1.json`). 좌표는 D-034 | 프롬프트 §10 '같은 역 ID 체계', 저장소 간 import 금지 |
 | D-029 | `room-core`는 점심합의에서 먼저 만들었다. 사잇 Phase 5에서 쓸 때 **복사**한다 | 프롬프트 §4·§12-3. 사용자에게 순서 확인 필요(README 다음 할 일) |
 | D-030 | 인앱 광고(Phase 4)는 `ads/ResultBanner.tsx` 자리만, `ADS_ENABLED=false` | WebView 배너 API·테스트 광고 ID 미확인(추측 금지) |
+| D-031 | **음식점 원본 = API 15154916**(`apis.data.go.kr/1741000/general_restaurants/info`). 파일 15045016은 쓰지 않는다 | 2026-10-31 확인: 15045016의 다운로드 링크(LOCALDATA)는 2026-04-16 서비스 종료로 403, 15096283은 이미지 1건. 통합 보도(ZDNet 2026-01-25 등)와 일치 |
+| D-032 | 필드명 = API Swagger 표기(`MNG_NO`·`BPLC_NM`·`SALS_STTS_CD/NM`·`CRD_INFO_X/Y`·`BZSTAT_SE_NM`·`SNTTN_BZSTAT_NM`·`ROAD_NM_ADDR`…). 업태가 비면 위생업태명 사용. 그 밖의 필드(전화·종사자·월세 등)는 저장하지 않는다 | `data.go.kr/data/15154916/openapi.do`의 swaggerJson(2026-08-25 수정본). 데이터 최소화 |
+| D-033 | **좌표계는 EPSG:5174와 EPSG:2097을 둘 다 두고 실측으로 고른다**(`verify-crs.ts`: 역 안 매장 ↔ 역 좌표 거리 중앙값). 판정 전 기본값은 문서 표기 EPSG:5174 | 포털 문구 "보정계수 안들어간 … (EPSG:5174)"가 자기모순(5174는 10.405″ 보정 포함, 미보정은 2097). 차이 약 250m라 도보 시간에 영향 |
+| D-034 | **역 좌표 = 국가철도공단 도시광역철도 역사정보**(철도데이터포털 id=32, 기준일 2026-06-30). 이름 정규화(사잇 D-027) + 괄호 노선 힌트로 동명이역 구분, 노선별 좌표 평균, 1km 넘게 벌어지면 제외, 수도권·강원·충남 주소만 → 578/581역 | 이용허락 제한 없음, 로그인 없는 직접 다운로드. XLSX는 의존성 없는 자체 리더(`xlsx.ts`)로 읽음 |
+| D-035 | 수집 단위 = 역사 주소에서 뽑은 **시·도 + 시·군·구**(65곳) × `SALS_STTS_CD` 영업 코드, 주소 앞부분 일치로 재필터. 경기 일반구는 시 단위. `--focus`는 측정 역 6개 지역만 | 전국 2.1백만 행을 받지 않아 호출 수 절약(개발계정 일일 한도). 영업 코드는 `--probe`로 확인 전 추측 금지 → 코드 인자 필수 |
+| D-036 | data-build.yml은 `DATA_GO_KR_KEY`(secret)와 `RESTAURANT_OPEN_CODE`(variable)가 모두 있을 때만 수집·빌드·배포, 없으면 경고 후 건너뜀(이전 Pages 유지). 역 좌표는 커밋된 fixtures 사용 | fail-closed. 원본 XLSX는 git 제외 |
