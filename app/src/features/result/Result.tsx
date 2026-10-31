@@ -10,7 +10,7 @@ import { errorMessage } from '../../data/room-repo';
 import { MENU_CHECK_NOTICE, outcomeFromCounts } from '../../domain';
 import { addDecision } from '../../storage/records';
 import { metaLine, PlaceCard } from '../candidates/PlaceCard';
-import { participantIndex, useNearby, useRecommendation, useRoom } from '../room/useRoom';
+import { participantIndex, useRecommendation, useRoom } from '../room/useRoom';
 
 /** 그릇 + 김 + 반짝임(아이콘의 노란 포인트를 살린 자체 그림). */
 export function CelebrateMark() {
@@ -33,8 +33,7 @@ export function Result() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { view, repo, error, reload, isHost } = useRoom(id);
-  const { origin } = useNearby(view?.room.stationId ?? null);
-  const rec = useRecommendation(view, origin);
+  const rec = useRecommendation(view);
   const [toast, setToast] = useState<string | null>(null);
   const saved = useRef(false);
 

@@ -3,17 +3,18 @@
 ```
 [데이터 빌드 — GitHub Actions 주 1회 + 수동 (.github/workflows/data-build.yml)]
  data-build/ (Node 24, TS 타입 제거 실행)
-   raw/15093755_역사정보.xlsx ─ xlsx.ts ─ stations.ts(사잇 역 ID 매칭) → fixtures/station-coords.json · station-regions.json
-   data.go.kr API 15154916 ─ fetch-api.ts(지역 × 영업 코드) → raw/15154916_일반음식점_YYYYMMDD/*.ndjson
+   data.go.kr API 15154916 ─ fetch-api.ts(전국 17개 시·도 × 영업 코드, 쪽 단위 이어받기) → raw/15154916_일반음식점_YYYYMMDD/*.ndjson
      └ verify-crs.ts(EPSG:5174 vs 2097 실측 판정) ─ transform.ts(영업 필터 · reproject.ts · tag.ts)
-     └ shard-by-station.ts(역 반경 1km, 격자 버킷) ─ validate.ts(필수 필드 · Phase 0 게이트) ─ build.ts
-   → out/v1/stations.json, out/v1/near/{역ID}.json  → GitHub Pages (실패 시 이전 산출물 유지)
+     └ build.ts(격자 타일 0.005° — app/src/domain/tiles.ts 공용) ─ validate.ts(필수 필드 · 측정 지점 10곳 게이트)
+   → out/v1/meta.json, out/v1/tiles/{i}_{j}.json  → GitHub Pages (실패 시 이전 산출물 유지)
+   (개발용) raw/15093755_역사정보.xlsx ─ xlsx.ts ─ reference-points.ts → fixtures/reference-points.json(좌표계 판정·측정 지점)
 
 [미니앱 — app/ (Vite + React + TS + @apps-in-toss/web-framework 3.9.0, CSR · 해시 라우팅)]
-  domain/      순수 TS: lunch-policy(상수) · group-constraints · distance · candidate-filter · scoring · explanations · voting
-  data/        places-api(정적 샤드 fetch·1.8초 타임아웃·메모리 캐시) · room-repo(local | remote RPC) · stations(역 검색)
+  domain/      순수 TS: lunch-policy(상수) · group-constraints · distance · tiles · candidate-filter · scoring · explanations · voting · external-map
+  data/        places-api(내 위치 반경 타일 병렬 fetch·1.8초 타임아웃·캐시) · room-repo(local | remote RPC)
   features/    home · room-create · preferences · candidates · vote · result · share · join · history · settings · room(useRoom 훅)
-  platform/    toss.ts — SDK 감싸기(Share·Clipboard·Environment·User), 토스 밖 대체 동작
+               location(useMyLocation · NearbyMap 자체 SVG 지도 · PlaceDetailSheet 카카오맵/네이버지도 링크)
+  platform/    toss.ts — SDK 감싸기(Share·Clipboard·Environment·User·Device.getLocation·Device.openURL), 토스 밖 대체 동작
   storage/     kv.ts(Storage | localStorage) · records.ts(최근 방·결정 기록·내 기본 조건)
   ads/         결과 화면 배너 자리(Phase 4)
   routes/      router.tsx(해시 라우터) · entry.ts(intoss:// 진입 링크 검증)

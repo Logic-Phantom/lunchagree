@@ -7,6 +7,7 @@
 --  * 참여 후 모든 호출은 (room_id, participant_id, participant_secret)로 확인한다. secret 원문은 기기에만, DB엔 해시.
 --  * 개인 조건은 밖으로 내보내지 않는다. get_room_state는 그룹 요약(상한 최솟값·못 먹는 것 합집합·좋아요 수)만 돌려준다.
 --  * 알레르기·종교·건강 '사유'는 받지 않는다(cannot_eat은 고정 칩 값만).
+--  * 사용자 위치(좌표)는 받지 않는다: 방에 기준점 좌표 없음, 후보에는 추가한 사람 기준 도보 분(walk_minutes)만.
 --  * service_role 키는 앱에 넣지 않는다.
 
 create extension if not exists pgcrypto with schema extensions;
@@ -31,7 +32,6 @@ create table if not exists public.rooms (
   token_hash text not null unique check (token_hash ~ '^[0-9a-f]{64}$'),
   short_code text not null unique check (short_code ~ '^[2-9A-HJKMNP-Z]{6}$'),
   title text not null check (char_length(title) between 1 and 30),
-  station_id text check (station_id is null or station_id ~ '^S[0-9]{4}$'),
   meeting_text text check (meeting_text is null or char_length(meeting_text) <= 40),
   date date not null,
   return_by text check (return_by is null or return_by ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
@@ -78,8 +78,7 @@ create table if not exists public.candidates (
   place_id text check (place_id is null or char_length(place_id) <= 64),
   name text not null check (char_length(name) between 1 and 40),
   address text check (address is null or char_length(address) <= 120),
-  lat double precision check (lat is null or lat between 33 and 39),
-  lng double precision check (lng is null or lng between 124 and 132),
+  walk_minutes int check (walk_minutes is null or walk_minutes between 1 and 60),
   tags text[] not null default '{}' check (cardinality(tags) <= 4),
   price_hint int check (price_hint is null or price_hint between 1000 and 100000),
   price_type text not null default 'UNKNOWN' check (price_type in ('USER_REPORTED','UNKNOWN')),
@@ -155,7 +154,7 @@ end $$;
 
 -- 방 만들기: 토큰·짧은 코드·참가자 비밀값은 클라이언트가 만들고 서버는 해시만 저장한다.
 create or replace function public.create_room(
-  p_token text, p_short_code text, p_title text, p_station_id text, p_meeting_text text,
+  p_token text, p_short_code text, p_title text, p_meeting_text text,
   p_return_by text, p_max_walk_minutes int, p_default_budget int,
   p_anon_hash text, p_secret text, p_nickname text
 ) returns jsonb
@@ -172,9 +171,9 @@ begin
   if active >= s.max_active_rooms then raise exception 'ROOMS_DISABLED'; end if;
   if p_token !~ '^[A-Za-z0-9_-]{22}$' or char_length(coalesce(p_secret, '')) < 22 then raise exception 'INVALID_TOKEN'; end if;
 
-  insert into public.rooms (token_hash, short_code, title, station_id, meeting_text, date, return_by,
+  insert into public.rooms (token_hash, short_code, title, meeting_text, date, return_by,
                             max_walk_minutes, default_budget, expires_at)
-  values (public._sha256(p_token), p_short_code, p_title, p_station_id, p_meeting_text,
+  values (public._sha256(p_token), p_short_code, p_title, p_meeting_text,
           (now() at time zone 'Asia/Seoul')::date, p_return_by, coalesce(p_max_walk_minutes, 10),
           p_default_budget, public.room_expires_at(now()))
   returning * into r;
@@ -252,7 +251,7 @@ end $$;
 
 create or replace function public.add_candidate(
   p_room uuid, p_pid uuid, p_secret text, p_source text, p_place_id text, p_name text,
-  p_address text, p_lat double precision, p_lng double precision, p_tags text[], p_price_hint int
+  p_address text, p_walk_minutes int, p_tags text[], p_price_hint int
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
@@ -263,8 +262,8 @@ declare
 begin
   select count(*) into n from public.candidates where room_id = r.id;
   if n >= 30 then raise exception 'TOO_MANY_CANDIDATES'; end if;
-  insert into public.candidates (room_id, source, place_id, name, address, lat, lng, tags, price_hint, price_type, added_by)
-  values (r.id, p_source, p_place_id, p_name, p_address, p_lat, p_lng, coalesce(p_tags, '{}'), p_price_hint,
+  insert into public.candidates (room_id, source, place_id, name, address, walk_minutes, tags, price_hint, price_type, added_by)
+  values (r.id, p_source, p_place_id, p_name, p_address, p_walk_minutes, coalesce(p_tags, '{}'), p_price_hint,
           case when p_price_hint is null then 'UNKNOWN' else 'USER_REPORTED' end, pt.id)
   returning id into cid;
   return cid;
@@ -318,7 +317,7 @@ begin
   select to_jsonb(p) - 'room_id' into mine from public.preferences p where p.participant_id = pt.id;
   return jsonb_build_object(
     'room', jsonb_build_object(
-      'id', r.id, 'shortCode', r.short_code, 'title', r.title, 'stationId', r.station_id,
+      'id', r.id, 'shortCode', r.short_code, 'title', r.title,
       'meetingText', r.meeting_text, 'date', r.date, 'returnBy', r.return_by, 'mealMinutes', r.meal_minutes,
       'maxWalkMinutes', r.max_walk_minutes, 'defaultBudget', r.default_budget, 'status', r.status,
       'expiresAt', r.expires_at, 'hostParticipantId', r.host_participant_id,
@@ -343,7 +342,7 @@ begin
            where room_id = r.id group by l) t), '{}'::jsonb)),
     'candidates', coalesce((
       select jsonb_agg(jsonb_build_object('id', c.id, 'source', c.source, 'placeId', c.place_id, 'name', c.name,
-               'address', c.address, 'lat', c.lat, 'lng', c.lng, 'tags', c.tags, 'priceHint', c.price_hint,
+               'address', c.address, 'walkMinutes', c.walk_minutes, 'tags', c.tags, 'priceHint', c.price_hint,
                'priceType', c.price_type, 'addedBy', c.added_by) order by c.created_at)
       from public.candidates c where c.room_id = r.id), '[]'::jsonb),
     'votes', coalesce((
@@ -370,11 +369,11 @@ end $$;
 -- ---------------------------------------------------------------------------
 revoke all on all functions in schema public from public, anon, authenticated;
 grant execute on function
-  public.create_room(text, text, text, text, text, text, int, int, text, text, text),
+  public.create_room(text, text, text, text, text, int, int, text, text, text),
   public.join_room(text, text, text, text),
   public.join_room_by_code(text, text, text, text),
   public.save_preference(uuid, uuid, text, int, text[], text[], int),
-  public.add_candidate(uuid, uuid, text, text, text, text, text, double precision, double precision, text[], int),
+  public.add_candidate(uuid, uuid, text, text, text, text, text, int, text[], int),
   public.cast_vote(uuid, uuid, text, uuid),
   public.set_room_status(uuid, uuid, text, text, uuid),
   public.get_room_state(uuid, uuid, text)

@@ -6,7 +6,7 @@ begin;
 -- 1) 방장: 방 만들기 (anon 역할로)
 set local role anon;
 select set_config('test.host', (public.create_room(
-  'AAAAAAAAAAAAAAAAAAAAAA', '23456A', '회사 점심', null, '본관 1층', '13:00', 10, 10000,
+  'AAAAAAAAAAAAAAAAAAAAAA', '23456A', '회사 점심', '본관 1층', '13:00', 10, 10000,
   repeat('a', 64), 'host-secret-0123456789ab', '나'))::text, true);
 
 -- 2) anon은 테이블을 직접 읽을 수 없다(정책 없음 → 0행)
@@ -59,6 +59,12 @@ begin
   exception when others then
     if sqlerrm <> 'HOST_ONLY' then raise; end if;
   end;
+
+  -- 6-1) 후보에는 좌표 대신 도보 분만, 상태 요약에도 좌표가 없다
+  perform public.add_candidate(room, (guest->>'participantId')::uuid, 'guest-secret-0123456789a', 'PUBLIC_DATA', 'P1', '테스트식당', '서울', 7, array['korean'], null);
+  st := public.get_room_state(room, (guest->>'participantId')::uuid, 'guest-secret-0123456789a');
+  if (st->'candidates'->0->>'walkMinutes')::int <> 7 then raise exception 'walkMinutes %', st->'candidates'; end if;
+  if st::text ~ '"(lat|lng|stationId)"' then raise exception 'location field leaked'; end if;
 
   -- 7) 같은 익명 키로 다시 참여하면 새 참가자를 만들지 않는다
   guest := public.join_room('AAAAAAAAAAAAAAAAAAAAAA', repeat('b', 64), 'guest-secret-new-0123456', '지민2');

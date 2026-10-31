@@ -1,4 +1,5 @@
-// 온보딩 02 '새 방 만들기': 참가자(2~6명, 아바타 줄) · 모이는 곳 · 내 조건 입력하기 · "조건은 나중에 변경할 수 있어요."
+// 온보딩 02 '새 방 만들기': 참가자(2~6명, 아바타 줄) · 모이는 곳(이름만, 선택) · 내 조건 입력하기 · "조건은 나중에 변경할 수 있어요."
+// 음식점은 후보를 넣을 때 '내 위치 주변'에서 찾는다 — 방에는 좌표를 저장하지 않는다(D-037).
 // 공유 방 서버가 있으면 방장만 넣고 나머지는 링크로 참여, 없으면 한 기기 모드로 참가자 이름을 직접 추가한다.
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +8,6 @@ import { Avatar } from '../../components/Avatar';
 import { Icon } from '../../components/Icon';
 import { Button, Header, Row, Screen, SectionTitle, Sheet, Toast } from '../../components/ui';
 import { defaultMode, errorMessage, repoFor } from '../../data/room-repo';
-import { searchStations, stationById, type Station } from '../../data/stations';
 import { loadDefaultPreference, saveDefaultPreference } from '../../storage/records';
 import { ConditionEditor, EMPTY_PREFERENCE, type PreferenceValue } from '../preferences/ConditionEditor';
 
@@ -16,12 +16,10 @@ export function RoomCreate() {
   const mode = defaultMode();
   const [title, setTitle] = useState('오늘 점심');
   const [others, setOthers] = useState<string[]>([]);
-  const [station, setStation] = useState<Station | null>(null);
   const [meetingText, setMeetingText] = useState('');
   const [pref, setPref] = useState<PreferenceValue>(EMPTY_PREFERENCE);
   const [sheet, setSheet] = useState<'member' | 'place' | 'title' | null>(null);
   const [nameInput, setNameInput] = useState('');
-  const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -50,7 +48,6 @@ export function RoomCreate() {
       await saveDefaultPreference(pref);
       const roomId = await repoFor(mode).create({
         title: title.trim() || '오늘 점심',
-        stationId: station?.id ?? null,
         meetingText: meetingText.trim() || null,
         returnBy: null,
         maxWalkMinutes: pref.maxWalkMinutes ?? 15,
@@ -67,7 +64,7 @@ export function RoomCreate() {
   };
 
   const count = others.length + 1;
-  const placeLabel = station ? `${station.name}역` : meetingText.trim() || '정하지 않음';
+  const placeLabel = meetingText.trim() || '정하지 않음';
 
   return (
     <Screen
@@ -115,7 +112,7 @@ export function RoomCreate() {
 
       <SectionTitle>모이는 곳</SectionTitle>
       <div className="row-list">
-        <Row icon="pin" label="기준역" value={placeLabel} onClick={() => setSheet('place')} />
+        <Row icon="pin" label="모이는 곳" value={placeLabel} onClick={() => setSheet('place')} />
       </div>
 
       <SectionTitle>내 조건 입력하기</SectionTitle>
@@ -140,38 +137,9 @@ export function RoomCreate() {
         />
       </Sheet>
 
-      <Sheet open={sheet === 'place'} title="모이는 곳" onClose={() => setSheet(null)}>
-        <input className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="역 이름 검색(초성 가능)" aria-label="역 검색" autoFocus />
-        <ul className="search-list">
-          {searchStations(query).map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setStation(stationById(s.id));
-                  setMeetingText('');
-                  setSheet(null);
-                }}
-              >
-                {s.name}역
-              </button>
-            </li>
-          ))}
-        </ul>
-        {query.trim() && searchStations(query).length === 0 && (
-          <button
-            type="button"
-            className="text-link"
-            onClick={() => {
-              setStation(null);
-              setMeetingText(query.trim().slice(0, 40));
-              setSheet(null);
-            }}
-          >
-            "{query.trim()}"(으)로 직접 정하기
-          </button>
-        )}
-        <p className="caption">역을 고르면 그 주변 음식점을 후보로 불러올 수 있어요(데이터 준비 후). 위치 권한은 쓰지 않아요.</p>
+      <Sheet open={sheet === 'place'} title="모이는 곳" onClose={() => setSheet(null)} footer={<Button onClick={() => setSheet(null)}>확인</Button>}>
+        <input className="input" value={meetingText} maxLength={40} onChange={(e) => setMeetingText(e.target.value)} placeholder="예: 본관 1층 로비" aria-label="모이는 곳" autoFocus />
+        <p className="caption">참가자에게 보이는 이름일 뿐이에요. 주변 음식점은 후보를 넣을 때 내 위치를 기준으로 찾아요.</p>
       </Sheet>
       <Toast message={toast} />
     </Screen>

@@ -6,7 +6,7 @@
 #   - Repository secret   DATA_GO_KR_KEY       : data.go.kr '행정안전부_식품_일반음식점 조회서비스'(15154916) 일반 인증키(Decoding). 커밋 금지.
 #   - Repository variable RESTAURANT_OPEN_CODE : 영업상태코드(로컬에서 npm run data:fetch -- --probe 로 확인한 값)
 #   - Settings → Pages → Source: GitHub Actions
-# 역 좌표(fixtures/station-coords.json)는 커밋된 산출물을 쓴다(원본 갱신 시 로컬에서 npm run data:stations).
+# 좌표계 판정용 기준점(fixtures/reference-points.json)은 커밋된 산출물을 쓴다(원본 갱신 시 로컬에서 npm run data:refpoints).
 name: Data Build
 
 on:
@@ -50,7 +50,7 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}
-      - name: 음식점 수집(역이 있는 65개 시·군·구, 영업 중만)
+      - name: 음식점 수집(전국 17개 시·도, 영업 중만 — 한도에 걸리면 실패, 다음 실행에서 새로 받음)
         if: steps.check.outputs.ready == 'true'
         run: npm run fetch:api --workspace data-build -- --open-code "$OPEN_CODE"
         env:

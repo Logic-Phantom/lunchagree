@@ -4,8 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "stations": "node src/stations.ts",
-    "fetch:file": "node src/fetch-file.ts",
+    "refpoints": "node src/reference-points.ts",
     "fetch:api": "node --env-file-if-exists=.env src/fetch-api.ts",
     "verify:crs": "node src/verify-crs.ts",
     "build": "node src/build.ts",

@@ -891,3 +891,91 @@ ul {
   background: var(--color-bg-subtle);
   padding: var(--space-2);
 }
+
+/* ---------- 내 주변 지도 ---------- */
+.nearby-map {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.nearby-map svg {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-line);
+  display: block;
+  touch-action: manipulation;
+}
+.nearby-map__bg {
+  fill: var(--color-bg-subtle);
+}
+.nearby-map__ring {
+  fill: none;
+  stroke: var(--color-text-faint);
+}
+.nearby-map__ring-label {
+  fill: var(--color-text-sub);
+  text-anchor: middle;
+  font-family: var(--font-family);
+  font-weight: 600;
+}
+.nearby-map__me-halo {
+  fill: rgba(35, 37, 45, 0.12);
+}
+.nearby-map__me {
+  fill: var(--color-ink);
+  stroke: #fff;
+}
+.nearby-map figcaption {
+  font: var(--text-micro);
+  color: var(--color-text-faint);
+}
+.pin {
+  cursor: pointer;
+}
+.pin circle:not(.pin__hit) {
+  fill: #fff;
+  stroke: var(--color-text-sub);
+}
+.pin__hit {
+  fill: transparent;
+}
+.pin--room circle:not(.pin__hit) {
+  fill: var(--color-yellow);
+  stroke: var(--color-ink);
+}
+.pin--sel circle:not(.pin__hit) {
+  fill: var(--color-ink);
+  stroke: var(--color-yellow);
+}
+.pin__rank {
+  fill: var(--color-ink);
+  text-anchor: middle;
+  font-family: var(--font-family);
+  font-weight: 800;
+  pointer-events: none;
+}
+.pin--sel .pin__rank {
+  fill: #fff;
+}
+.nearby-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.segmented--small {
+  padding: 3px;
+}
+.segmented--small button {
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  font: var(--text-micro);
+}
+.map-links {
+  display: flex;
+  gap: var(--space-2);
+}
+.map-links .btn {
+  flex: 1;
+}

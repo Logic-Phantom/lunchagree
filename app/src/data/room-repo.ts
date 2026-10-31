@@ -30,7 +30,6 @@ export interface RoomView {
 
 export interface CreateRoomInput {
   title: string;
-  stationId: string | null;
   meetingText: string | null;
   returnBy: string | null;
   maxWalkMinutes: number;
@@ -41,7 +40,7 @@ export interface CreateRoomInput {
   others: string[];
 }
 
-export type NewCandidate = Pick<Candidate, 'source' | 'placeId' | 'name' | 'address' | 'lat' | 'lng' | 'tags' | 'priceHint'>;
+export type NewCandidate = Pick<Candidate, 'source' | 'placeId' | 'name' | 'address' | 'walkMinutes' | 'tags' | 'priceHint'>;
 
 export interface RoomRepo {
   mode: RoomMode;
@@ -132,7 +131,6 @@ export const localRepo: RoomRepo = {
         id: roomId,
         shortCode: generateShortCode(),
         title: input.title,
-        stationId: input.stationId,
         meetingText: input.meetingText,
         date: kstDate(now),
         returnBy: input.returnBy,
@@ -269,7 +267,7 @@ export const remoteRepo: RoomRepo = {
     const secret = generateToken();
     const anon = await anonHashForRoom(await anonymousKey(), token);
     const r = await rpc<{ roomId: string; participantId: string }>('create_room', {
-      p_token: token, p_short_code: generateShortCode(), p_title: input.title, p_station_id: input.stationId,
+      p_token: token, p_short_code: generateShortCode(), p_title: input.title,
       p_meeting_text: input.meetingText, p_return_by: input.returnBy, p_max_walk_minutes: input.maxWalkMinutes,
       p_default_budget: input.defaultBudget, p_anon_hash: anon, p_secret: secret, p_nickname: input.hostNickname,
     });
@@ -317,7 +315,7 @@ export const remoteRepo: RoomRepo = {
   async addCandidate(roomId, _participantId, c) {
     const { args } = await auth(roomId);
     return rpc<string>('add_candidate', {
-      ...args, p_source: c.source, p_place_id: c.placeId, p_name: c.name, p_address: c.address, p_lat: c.lat, p_lng: c.lng,
+      ...args, p_source: c.source, p_place_id: c.placeId, p_name: c.name, p_address: c.address, p_walk_minutes: c.walkMinutes,
       p_tags: c.tags, p_price_hint: c.priceHint,
     });
   },

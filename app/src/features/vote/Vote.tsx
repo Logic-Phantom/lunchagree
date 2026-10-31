@@ -8,14 +8,13 @@ import { Button, Header, Loading, Screen, Toast } from '../../components/ui';
 import { errorMessage } from '../../data/room-repo';
 import { outcomeFromCounts, voteStatusLabel } from '../../domain';
 import { metaLine } from '../candidates/PlaceCard';
-import { participantIndex, useNearby, useRecommendation, useRoom } from '../room/useRoom';
+import { participantIndex, useRecommendation, useRoom } from '../room/useRoom';
 
 export function Vote() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { view, repo, error, reload, isHost } = useRoom(id);
-  const { origin } = useNearby(view?.room.stationId ?? null);
-  const rec = useRecommendation(view, origin);
+  const rec = useRecommendation(view);
   const [page, setPage] = useState(0);
   const [voter, setVoter] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);

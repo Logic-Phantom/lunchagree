@@ -7,10 +7,13 @@
 
 방장이 방을 만들어 링크를 돌리면 동료들이 가입 없이 예산·못 먹는 것·걷기 한도를 넣고, 앱이 조건을 통과한 후보를 좁혀 투표로 끝내는 **토스 미니앱(앱인토스 WebView)**. 기획 원문: [docs/SUPER_PROMPT.md](docs/SUPER_PROMPT.md)
 
-> **현재 상태 (2026-10-31)** — 프로젝트 구조·아키텍처·MVP 화면 1차 구현 + **Phase 0 진행 중(서비스 키 대기)**.
-> - 앱 전체 흐름(홈 → 방 만들기 → 조건 → 추천 → 투표 → 결과 → 공유)을 **한 기기 모드**로 브라우저에서 확인. `.ait` 패키지 빌드 성공.
-> - 공유 방(Supabase) 스키마·RPC·RLS는 **PGlite(실제 Postgres)로 실행·통과**, Supabase 실프로젝트 연결은 아직(키 없음).
-> - Phase 0: 음식점 원본을 **공식 API(15154916)로 확정·필드 확인**, **역 좌표 578/581역 확보**. 음식점 수집·좌표계 판정·게이트 측정은 **data.go.kr 서비스 키가 있어야** 진행 가능 — 그 전까지 후보는 '직접 추가'만. 가짜 식당·데모 데이터는 넣지 않았다.
+> **현재 상태 (2026-10-31)**
+> - **내 현재 위치 기준**으로 반경 1km 음식점을 찾고, **내 주변 지도**(자체 SVG 지도)에 핀으로 보여 준다. 역 개념은 없앴다.
+> - 가게를 누르면 **카카오맵·네이버지도에서 보기**로 실제 영업시간·오늘 영업 여부를 확인(그쪽 데이터는 저장하지 않음).
+> - 위치는 기기 안에서만 쓰고 저장·서버 전송하지 않는다. 공유 방에는 '추가한 사람 기준 도보 몇 분'만 남는다.
+> - 앱 전체 흐름(홈 → 방 만들기 → 조건 → 추천·지도 → 투표 → 결과 → 공유)은 **한 기기 모드**로 브라우저에서 확인. 지도·주변 목록은 합성 '테스트식당' 타일로 확인했다(실데이터 아님).
+> - 공유 방(Supabase) 스키마·RPC·RLS는 PGlite로 실행·통과, 실프로젝트 연결 전.
+> - 음식점 원본은 공식 API(15154916)로 확정·필드 확인. **실제 수집·좌표계 판정·게이트 측정은 data.go.kr 서비스 키 대기** — 그 전까지 후보는 '직접 추가'만. 가짜 식당은 넣지 않았다.
 > - 토스앱(샌드박스·QR) 확인 전, 콘솔 미등록.
 
 ## 화면
@@ -23,7 +26,10 @@
 | **04 투표하기** | **05 결과 확인** | **06 공유 & 기록** |
 | <img src="docs/screenshots/04-vote.jpg" width="220" /> | <img src="docs/screenshots/05-result.jpg" width="220" /> | <img src="docs/screenshots/06-share.jpg" width="220" /> |
 
-(캡처의 '테스트 ○○' 가게는 브라우저 확인용으로 직접 입력한 값이다.)
+| **내 주변 지도** | **가게 상세(지도 앱 연결)** | |
+| <img src="docs/screenshots/07-nearby-map.jpg" width="220" /> | <img src="docs/screenshots/08-place-detail.jpg" width="220" /> | |
+
+(캡처의 '테스트○○' 가게는 브라우저 확인용 합성 데이터다.)
 
 ## 상태표
 `구현` = 코드 있음 · `자동 테스트 통과` · `브라우저 확인` = 개발 서버 375/360px · `샌드박스 확인` · `토스앱 확인`
@@ -35,11 +41,13 @@
 | 도메인 엔진(그룹 조건·하드 필터·못 먹는 것 판정·점수·이유 문장·투표) | 자동 테스트 통과 | app 11개, 가짜 후보 생성 없음 테스트 포함 |
 | room-core(토큰·해시·짧은 코드·만료·닉네임·상태 전이·투표 집계·링크) | 자동 테스트 통과 | 13개 |
 | Supabase 마이그레이션·RPC·RLS | 자동 테스트 통과(PGlite) | `npm run test:sql`. **Supabase 실프로젝트 미실행** |
-| data-build(API 수집기·역 좌표 매칭·XLSX 리더·영업 필터·좌표 변환 2종·좌표계 판정·종류 태그·1km 샤드·게이트) | 자동 테스트 통과 | 16개. 필드명은 공식 Swagger로 확인(D-032) |
-| Phase 0 역 좌표(국가철도공단 역사정보) | ✅ 실행 | 578/581역, 수집 지역 65곳 — `docs/DATA_SOURCES.md` |
+| data-build(API 전국 수집기·격자 타일·좌표 변환 2종·좌표계 판정·종류 태그·게이트) | 자동 테스트 통과 | 16개. 필드명은 공식 Swagger로 확인(D-032), 타일 계산은 앱과 공용(D-040) |
+| 내 위치(Device.getLocation / geolocation) · 반경 1km 주변 음식점 · 거부 시 대체 | 브라우저 확인 | 위치 흉내 + 합성 타일. **토스앱 미확인** |
+| 내 주변 지도(자체 SVG, 링·핀·방 후보 강조·추천 순위) | 브라우저 확인 | 배경지도(브이월드)는 키 없음 — 미확인(D-038) |
+| 카카오맵·네이버지도 장소 검색 링크(영업시간 확인용) | 브라우저 확인 | Device.openURL은 토스앱 미확인, 외부 이동 허용 여부 검토 때 확인(D-039) |
 | Phase 0 음식점 수집 · 좌표계 판정(5174 vs 2097) · 게이트(중앙값 ≥100, 태그 ≥70%) | ⏳ **서비스 키 대기** | `npm run data:fetch -- --probe` 부터 |
-| 홈 · 방 만들기 · 조건 입력(바텀시트) · 기준역 검색(초성) | 브라우저 확인 | 한 기기 모드 |
-| 추천 결과 · 후보 직접 추가 · 다른 후보 보기 · 후보 부족 안내 | 브라우저 확인 | 주변 음식점 고르기는 샤드 배포 후 |
+| 홈 · 방 만들기 · 조건 입력(바텀시트) · 모이는 곳 이름 | 브라우저 확인 | 한 기기 모드 |
+| 추천 결과 · 내 주변/직접 후보 추가 · 다른 후보 보기 · 후보 부족 안내 | 브라우저 확인 | 실데이터 타일은 배포 후 |
 | 투표(한 기기 모드 돌려 입력) · 결과 · 동률 처리 · 공유 · 기록 · 설정 | 브라우저 확인 | 동률 화면은 코드·단위 테스트만 |
 | 360px 가로 스크롤 없음 | 브라우저 확인 | 7개 화면 |
 | 공유 방(remote 모드: 링크·코드 참여, 5초 폴링) | 구현 | Supabase 키 연결 후 확인 |
@@ -55,7 +63,7 @@ lunchagree/
 │  ├─ apps-in-toss.config.ts appName 'jeomsimhabui'
 │  └─ src/ domain · data · features · platform · storage · ads · routes · components · styles
 ├─ packages/room-core/       방·토큰·참여·만료·투표 공통(순수 TS) + supabase/migrations · tests
-├─ data-build/               공공데이터 → 역별 1km 후보 샤드(GitHub Pages)
+├─ data-build/               공공데이터 → 전국 격자 타일(GitHub Pages)
 ├─ scripts/                  build-app-icons.py · generate-oss-licenses.mjs
 ├─ assets/brand/             아이콘 원본·콘솔 로고
 └─ docs/                     DECISIONS · ARCHITECTURE · DATA_SOURCES · PLACE_DATA_POLICY · CONSENSUS_ALGORITHM ·
@@ -76,9 +84,6 @@ npm test && npm run typecheck && npm run test:sql && npm run build
 ```
 데이터(Phase 0):
 ```bash
-npm run data:stations
-```
-```bash
 npm run data:fetch -- --probe
 ```
 ```bash
@@ -91,15 +96,14 @@ npm run data:crs && npm run data:build
 npm run build:ait
 ```
 
-환경변수(`app/.env`, 예시 `app/.env.example`): `VITE_SUPABASE_URL`·`VITE_SUPABASE_ANON_KEY`(없으면 한 기기 모드), `VITE_PLACES_BASE_URL`(없으면 후보 직접 추가만).
+환경변수(`app/.env`, 예시 `app/.env.example`): `VITE_SUPABASE_URL`·`VITE_SUPABASE_ANON_KEY`(없으면 한 기기 모드), `VITE_PLACES_BASE_URL`(음식점 타일 주소, 없으면 후보 직접 추가만), `VITE_VWORLD_KEY`(선택, 지도 배경).
 
 ## 다른 프로젝트에서 가져온 것
 | 가져온 것 | 출처 |
 |---|---|
-| 토스 SDK 감싸기 · 저장소 어댑터 · 해시 라우팅 · 진입 링크 · 아이콘/라이선스 스크립트 · 문서 형식 | 사잇(`saeit`) |
+| 토스 SDK 연동 구조(감싸기·토스 밖 대체 동작) · 저장소 어댑터 · 해시 라우팅 · 진입 링크 · 아이콘/라이선스 스크립트 · 문서 형식 | 사잇(`saeit`) — 역 데이터 등 기능은 가져오지 않음 |
 | Supabase RLS · security definer RPC · fail-closed 설정 · SQL 테스트 형식 | 컷픽(`Cutpick/supabase`) |
 | 예약 실행 GitHub Actions(cron + 수동, 정각 회피, concurrency) | 기묘한 기록(`StrangeRecords/.github`) |
-| 지하철역 ID·이름 | 사잇 `graph.v1.json` (복사, 저장소 간 import 없음) |
 
 ## 사용자가 직접 할 일
 1. data.go.kr에서 **'행정안전부_식품_일반음식점 조회서비스'(15154916) 활용신청** → 일반 인증키(Decoding)를 `data-build/.env`에 `DATA_GO_KR_KEY=…`로 저장(git 제외)하고 GitHub Secret `DATA_GO_KR_KEY`에도 등록(커밋 금지). 키를 넣은 뒤 `npm run data:fetch -- --probe` 결과의 영업상태 코드를 Repository variable `RESTAURANT_OPEN_CODE`에 등록
@@ -110,7 +114,7 @@ npm run build:ait
 6. GitHub Pages(Source: GitHub Actions) 켜기 — 후보 샤드 배포용
 
 ## 다음 할 일
-- **Phase 0 마무리(키 필요)**: `npm run data:fetch -- --probe` → `-- --open-code <코드> --focus` → `npm run data:crs` → `npm run data:build`로 측정 역 10곳 게이트 판정
+- **Phase 0 마무리(키 필요)**: `npm run data:fetch -- --probe` → `-- --open-code <코드> --focus` → `npm run data:crs` → `npm run data:build`로 측정 지점 10곳 게이트 판정 → 전국 수집 → Pages 배포 후 실기기에서 타일 로딩 시간 측정
 - 사잇과 `room-core` 공유 순서 확정(현재 점심합의에서 먼저 만듦 — D-029)
 - Supabase 실프로젝트에서 RPC 호출·폴링 확인, 두 기기 참여·투표 E2E(QR `intoss-private://`)
 - 토스앱에서 뒤로가기·공유 링크·initialURL 진입 확인
@@ -137,3 +141,13 @@ npm run build:ait
 - **수집기**: `fetch-api.ts`(`--probe` 탐색 / `--open-code` 전체 / `--focus` 측정 지역만, 지역 단위 이어받기, 한도 오류 시 중단), `fetch-file.ts`(사잇 파일데이터 수집기 이식). 빌드는 NDJSON 수집본 기준으로 변경, CSV 경로 삭제. data-build.yml은 키·영업 코드가 있을 때만 실행(D-036).
 - **검증**: data-build 테스트 16개(좌표계 판정·동명이역·지역 보정·API 응답 파싱·필드 최소화 포함), 타입 검사 통과. 키 없이 실행하면 수집·빌드가 안내 문구와 함께 멈추는 것 확인.
 - **막힌 것**: 음식점 수집·좌표계 판정·게이트 측정은 data.go.kr 서비스 키(사용자 계정 활용신청)가 필요.
+
+### 2026-10-31 — 기준점을 '내 위치'로 전환 · 내 주변 지도 · 지도 앱 연결
+- **역 개념 삭제**(사용자 요청): 사잇에서는 토스 연동 구조만 가져오고 역 ID·역 검색·역별 샤드를 모두 걷어냈다. 방 만들기의 '기준역'은 선택 입력 '모이는 곳(이름)'으로.
+- **내 위치**: `Device.getLocation`(토스 SDK 3.9.0 타입 확인)/브라우저 geolocation, '내 위치로 찾기'를 누를 때만 요청, 앱 메모리에만 보관. 거부 시 안내 + 직접 추가로 계속(D-037).
+- **데이터**: 전국 음식점을 0.005° 격자 타일로 나누고(앱·data-build 공용 `tiles.ts`), 앱은 반경 1km에 걸치는 타일만 병렬로 받는다. 수집은 전국 17개 시·도 × 영업 코드, 쪽 단위 이어받기(D-040). 역사 좌표는 좌표계 판정·측정 지점용 개발 기준점으로만 남김(942곳).
+- **공유 방 위치 최소화**: 방의 `station_id`·후보 `lat/lng` 삭제, 후보에 '추가한 사람 기준 도보 분'(`walk_minutes`)만 저장. RLS 테스트에 위치 필드 비노출 검사 추가.
+- **내 주변 지도**: 의존성 없는 SVG 지도(내 위치·250m/500m/1km 링·음식점 핀·방 후보 노란 핀·추천 순위). 브이월드 키가 있으면 배경지도(D-038).
+- **영업시간 확인**: 카카오·네이버 지도는 앱에 넣어도 영업시간을 주지 않아(지도 SDK·검색 API 응답에 없음), 가게 상세에 '카카오맵에서 보기 / 네이버지도에서 보기' 장소 검색 링크를 두어 그쪽에서 확인하게 했다(D-039).
+- **검증**: 자동 테스트 42개(room-core 13 · data-build 16 · app 13) + SQL/RLS, 타입 검사, 빌드. 브라우저에서 합성 타일·위치 흉내로 지도·목록·상세·후보 넣기·링크 주소·권한 거부를 확인.
+- **미확인**: 토스앱에서 위치·외부 링크 동작, 앱인토스 외부 이동 허용 범위, 위치기반서비스사업 신고 필요 여부, 브이월드 약관·URL, 실데이터 타일 로딩 시간.

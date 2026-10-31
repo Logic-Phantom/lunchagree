@@ -16,9 +16,9 @@
     "licenses": "node scripts/generate-oss-licenses.mjs",
     "icons": "python scripts/build-app-icons.py",
     "test:sql": "npm run test:sql --workspace packages/room-core",
-    "data:stations": "npm run stations --workspace data-build",
     "data:fetch": "npm run fetch:api --workspace data-build --",
-    "data:crs": "npm run verify:crs --workspace data-build"
+    "data:crs": "npm run verify:crs --workspace data-build",
+    "data:refpoints": "npm run refpoints --workspace data-build"
   },
   "engines": {
     "node": ">=24"

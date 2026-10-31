@@ -1,9 +1,8 @@
-// 방 화면 공통 훅: 방 불러오기, 공유 방은 5초 폴링(Realtime 대신 — D-012), 최근 방 갱신, 기준역 좌표·주변 후보.
+// 방 화면 공통 훅: 방 불러오기, 공유 방은 5초 폴링(Realtime 대신 — D-012), 최근 방 갱신, 추천 계산.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isExpired } from '@jeomsimhabui/room-core';
-import { fetchNearbyPlaces, type NearbyResult } from '../../data/places-api';
 import { errorMessage, localRepo, remoteConfigured, remoteRepo, type RoomRepo, type RoomView } from '../../data/room-repo';
-import { recommend, type LatLng, type RecommendResult } from '../../domain';
+import { recommend, type RecommendResult } from '../../domain';
 import { touchRecentRoom } from '../../storage/records';
 
 const POLL_MS = 5000;
@@ -66,26 +65,8 @@ export function useRoom(roomId: string | undefined) {
   return { view, repo, error, loading, reload, expired, isHost };
 }
 
-/** 기준역 좌표와 주변 공공데이터 후보(정적 샤드). 데이터 빌드 전이면 unavailable. */
-export function useNearby(stationId: string | null) {
-  const [nearby, setNearby] = useState<NearbyResult | null>(null);
-  useEffect(() => {
-    let alive = true;
-    if (!stationId) {
-      setNearby({ status: 'unavailable' });
-      return;
-    }
-    fetchNearbyPlaces(stationId).then((r) => alive && setNearby(r));
-    return () => {
-      alive = false;
-    };
-  }, [stationId]);
-  const origin: LatLng | null = nearby?.status === 'ok' ? nearby.station : null;
-  return { nearby, origin };
-}
-
-export function useRecommendation(view: RoomView | null, origin: LatLng | null): RecommendResult | null {
-  return useMemo(() => (view ? recommend(view.candidates, view.group, origin) : null), [view, origin]);
+export function useRecommendation(view: RoomView | null): RecommendResult | null {
+  return useMemo(() => (view ? recommend(view.candidates, view.group) : null), [view]);
 }
 
 /** 참가자 순서 = 아바타 색 순서. */

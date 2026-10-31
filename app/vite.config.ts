@@ -12,7 +12,6 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
-            { name: 'stations', test: /stations\.v\d+\.json/ },
             { name: 'vendor', test: /node_modules/ },
           ],
         },

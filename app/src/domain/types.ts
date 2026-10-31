@@ -3,7 +3,7 @@ import type { Candidate, Preference } from '@jeomsimhabui/room-core';
 
 export type { Candidate, Preference };
 
-/** 정적 후보(data-build 산출물 /v1/near/{stationId}.json의 한 항목). */
+/** 공공데이터 음식점(정적 타일 /v1/tiles/{i}_{j}.json의 한 행을 푼 것). */
 export interface Place {
   id: string;
   name: string;
@@ -18,6 +18,13 @@ export interface Place {
 export interface LatLng {
   lat: number;
   lng: number;
+}
+
+/** 내 위치 기준으로 거리를 붙인 주변 음식점. */
+export interface NearbyPlace {
+  place: Place;
+  distanceM: number;
+  walkMin: number;
 }
 
 /**
@@ -43,7 +50,6 @@ export type BlockReason = 'cannotEat' | 'budget' | 'distance';
 
 export interface Evaluated {
   candidate: Candidate;
-  distanceM: number | null;
   walkMin: number | null;
   /** 못 먹는 것 칩이 있고, 이 후보 종류에 해당 메뉴가 있을 수 있음. */
   needsMenuCheck: boolean;

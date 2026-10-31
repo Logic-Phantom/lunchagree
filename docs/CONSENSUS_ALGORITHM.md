@@ -28,7 +28,7 @@
 `score = 0.7 × like + 0.3 × distance`
 - `like` = 후보 태그 중 가장 큰 가중치 ÷ 조건 입력 인원 (0~1)
 - `distance` = `1 − 도보분 ÷ (걷기한도 ?? 15)`, 좌표 모르면 0
-- 도보분 = `ceil(직선거리 × 1.3 ÷ 75)`, 항상 "(추정)"
+- 도보분 = `ceil(직선거리 × 1.3 ÷ 75)`, 직선거리는 **후보를 넣은 사람의 현재 위치** 기준(좌표는 저장하지 않고 분만 저장), 항상 "(추정)"
 - 정렬: 점수 ↓ → 도보분 ↑(모름은 뒤) → 이름 → id (결정적)
 
 ## 5. 투표
@@ -37,4 +37,4 @@
 - 방장만 투표 시작·마감 가능.
 
 ## 테스트
-`app/tests/domain.test.ts`(11), `packages/room-core/tests/room-core.test.ts`(13), `packages/room-core/supabase/tests/rls_test.sql`.
+`app/tests/domain.test.ts`(13), `packages/room-core/tests/room-core.test.ts`(13), `packages/room-core/supabase/tests/rls_test.sql`.

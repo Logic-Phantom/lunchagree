@@ -6,7 +6,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { COLUMNS } from './column-map.ts';
 import { CRS_DEFS, toWgs84, type CrsName } from './reproject.ts';
-import { haversine } from './shard-by-station.ts';
+import { haversineMeters as haversine } from '../../app/src/domain/distance.ts';
 import { median } from './validate.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -44,15 +44,16 @@ export function compareCrs(rows: Record<string, string>[], stations: { lat: numb
 
 export function readNdjsonDir(dir: string): Record<string, string>[] {
   return readdirSync(dir)
-    .filter((f) => f.endsWith('.ndjson'))
+    .filter((f) => f.endsWith('.ndjson') && !f.endsWith('.partial.ndjson'))
     .flatMap((f) => readFileSync(join(dir, f), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, string>));
 }
 
 if (import.meta.main) {
   const dir = readdirSync(join(ROOT, 'raw')).filter((f) => /^15154916_.*_\d{8}$/.test(f)).sort().at(-1);
   if (!dir) throw new Error('raw/15154916_일반음식점_YYYYMMDD/ 없음 — npm run fetch:api 먼저');
-  const stations = JSON.parse(readFileSync(join(ROOT, 'fixtures', 'station-coords.json'), 'utf8')).stations;
-  const result = compareCrs(readNdjsonDir(join(ROOT, 'raw', dir)), stations);
+  // 기준점 = 역사 공식 좌표(reference-points.ts). 역 안 매장 주소가 역사 주소와 같다는 점만 이용한다
+  const points = JSON.parse(readFileSync(join(ROOT, 'fixtures', 'reference-points.json'), 'utf8')).points;
+  const result = compareCrs(readNdjsonDir(join(ROOT, 'raw', dir)), points);
   mkdirSync(join(ROOT, 'out'), { recursive: true });
   writeFileSync(join(ROOT, 'out', 'crs-check.json'), JSON.stringify({ dir, ...result }, null, 2));
   console.log(result);
