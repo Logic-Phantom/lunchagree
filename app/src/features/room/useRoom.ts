@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isExpired } from '@jeomsimhabui/room-core';
 import { errorMessage, localRepo, remoteConfigured, remoteRepo, type RoomRepo, type RoomView } from '../../data/room-repo';
-import { recommend, type RecommendResult } from '../../domain';
+import { recommend, type LatLng, type RecommendResult } from '../../domain';
 import { touchRecentRoom } from '../../storage/records';
 
 const POLL_MS = 5000;
@@ -65,8 +65,9 @@ export function useRoom(roomId: string | undefined) {
   return { view, repo, error, loading, reload, expired, isHost };
 }
 
-export function useRecommendation(view: RoomView | null): RecommendResult | null {
-  return useMemo(() => (view ? recommend(view.candidates, view.group) : null), [view]);
+/** origin = 이 기기의 현재 위치(useMyLocation). 위치를 모르면 거리 미확인으로 계산한다. */
+export function useRecommendation(view: RoomView | null, origin: LatLng | null = null): RecommendResult | null {
+  return useMemo(() => (view ? recommend(view.candidates, view.group, origin) : null), [view, origin]);
 }
 
 /** 참가자 순서 = 아바타 색 순서. */

@@ -40,7 +40,7 @@ export interface CreateRoomInput {
   others: string[];
 }
 
-export type NewCandidate = Pick<Candidate, 'source' | 'placeId' | 'name' | 'address' | 'walkMinutes' | 'tags' | 'priceHint'>;
+export type NewCandidate = Pick<Candidate, 'source' | 'placeId' | 'name' | 'address' | 'lat' | 'lng' | 'tags' | 'priceHint'>;
 
 export interface RoomRepo {
   mode: RoomMode;
@@ -315,7 +315,7 @@ export const remoteRepo: RoomRepo = {
   async addCandidate(roomId, _participantId, c) {
     const { args } = await auth(roomId);
     return rpc<string>('add_candidate', {
-      ...args, p_source: c.source, p_place_id: c.placeId, p_name: c.name, p_address: c.address, p_walk_minutes: c.walkMinutes,
+      ...args, p_source: c.source, p_place_id: c.placeId, p_name: c.name, p_address: c.address, p_lat: c.lat, p_lng: c.lng,
       p_tags: c.tags, p_price_hint: c.priceHint,
     });
   },

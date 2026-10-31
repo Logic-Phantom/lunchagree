@@ -10,6 +10,7 @@ import { errorMessage } from '../../data/room-repo';
 import { MENU_CHECK_NOTICE, outcomeFromCounts } from '../../domain';
 import { addDecision } from '../../storage/records';
 import { metaLine, PlaceCard } from '../candidates/PlaceCard';
+import { useMyLocation } from '../location/useMyLocation';
 import { participantIndex, useRecommendation, useRoom } from '../room/useRoom';
 
 /** 그릇 + 김 + 반짝임(아이콘의 노란 포인트를 살린 자체 그림). */
@@ -33,7 +34,8 @@ export function Result() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { view, repo, error, reload, isHost } = useRoom(id);
-  const rec = useRecommendation(view);
+  const { location } = useMyLocation();
+  const rec = useRecommendation(view, location);
   const [toast, setToast] = useState<string | null>(null);
   const saved = useRef(false);
 

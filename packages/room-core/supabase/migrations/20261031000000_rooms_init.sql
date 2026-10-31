@@ -7,7 +7,8 @@
 --  * 참여 후 모든 호출은 (room_id, participant_id, participant_secret)로 확인한다. secret 원문은 기기에만, DB엔 해시.
 --  * 개인 조건은 밖으로 내보내지 않는다. get_room_state는 그룹 요약(상한 최솟값·못 먹는 것 합집합·좋아요 수)만 돌려준다.
 --  * 알레르기·종교·건강 '사유'는 받지 않는다(cannot_eat은 고정 칩 값만).
---  * 사용자 위치(좌표)는 받지 않는다: 방에 기준점 좌표 없음, 후보에는 추가한 사람 기준 도보 분(walk_minutes)만.
+--  * 사용자 위치와 그 파생값(거리·도보 분)은 받지 않는다(위치기반서비스 비신고 요건: 단말기에서만 활용, D-041).
+--    후보 lat/lng는 공공데이터 식당 좌표뿐이다.
 --  * service_role 키는 앱에 넣지 않는다.
 
 create extension if not exists pgcrypto with schema extensions;
@@ -78,7 +79,8 @@ create table if not exists public.candidates (
   place_id text check (place_id is null or char_length(place_id) <= 64),
   name text not null check (char_length(name) between 1 and 40),
   address text check (address is null or char_length(address) <= 120),
-  walk_minutes int check (walk_minutes is null or walk_minutes between 1 and 60),
+  lat double precision check (lat is null or lat between 33 and 39), -- 식당 좌표(공공데이터)
+  lng double precision check (lng is null or lng between 124 and 132),
   tags text[] not null default '{}' check (cardinality(tags) <= 4),
   price_hint int check (price_hint is null or price_hint between 1000 and 100000),
   price_type text not null default 'UNKNOWN' check (price_type in ('USER_REPORTED','UNKNOWN')),
@@ -251,7 +253,7 @@ end $$;
 
 create or replace function public.add_candidate(
   p_room uuid, p_pid uuid, p_secret text, p_source text, p_place_id text, p_name text,
-  p_address text, p_walk_minutes int, p_tags text[], p_price_hint int
+  p_address text, p_lat double precision, p_lng double precision, p_tags text[], p_price_hint int
 ) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
@@ -262,8 +264,8 @@ declare
 begin
   select count(*) into n from public.candidates where room_id = r.id;
   if n >= 30 then raise exception 'TOO_MANY_CANDIDATES'; end if;
-  insert into public.candidates (room_id, source, place_id, name, address, walk_minutes, tags, price_hint, price_type, added_by)
-  values (r.id, p_source, p_place_id, p_name, p_address, p_walk_minutes, coalesce(p_tags, '{}'), p_price_hint,
+  insert into public.candidates (room_id, source, place_id, name, address, lat, lng, tags, price_hint, price_type, added_by)
+  values (r.id, p_source, p_place_id, p_name, p_address, p_lat, p_lng, coalesce(p_tags, '{}'), p_price_hint,
           case when p_price_hint is null then 'UNKNOWN' else 'USER_REPORTED' end, pt.id)
   returning id into cid;
   return cid;
@@ -342,7 +344,7 @@ begin
            where room_id = r.id group by l) t), '{}'::jsonb)),
     'candidates', coalesce((
       select jsonb_agg(jsonb_build_object('id', c.id, 'source', c.source, 'placeId', c.place_id, 'name', c.name,
-               'address', c.address, 'walkMinutes', c.walk_minutes, 'tags', c.tags, 'priceHint', c.price_hint,
+               'address', c.address, 'lat', c.lat, 'lng', c.lng, 'tags', c.tags, 'priceHint', c.price_hint,
                'priceType', c.price_type, 'addedBy', c.added_by) order by c.created_at)
       from public.candidates c where c.room_id = r.id), '[]'::jsonb),
     'votes', coalesce((
@@ -373,7 +375,7 @@ grant execute on function
   public.join_room(text, text, text, text),
   public.join_room_by_code(text, text, text, text),
   public.save_preference(uuid, uuid, text, int, text[], text[], int),
-  public.add_candidate(uuid, uuid, text, text, text, text, text, int, text[], int),
+  public.add_candidate(uuid, uuid, text, text, text, text, text, double precision, double precision, text[], int),
   public.cast_vote(uuid, uuid, text, uuid),
   public.set_room_status(uuid, uuid, text, text, uuid),
   public.get_room_state(uuid, uuid, text)

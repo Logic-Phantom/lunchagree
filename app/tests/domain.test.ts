@@ -6,14 +6,6 @@ import {
 } from '../src/domain/index.ts';
 import { rowToPlace, withinRadius } from '../src/data/places-api.ts';
 
-let seq = 0;
-function cand(name: string, tags: string[], opts: Partial<Candidate> = {}): Candidate {
-  seq += 1;
-  return {
-    id: `c${seq}`, roomId: 'r', source: 'MANUAL', placeId: null, name, address: null, walkMinutes: null, tags,
-    priceHint: null, priceType: 'UNKNOWN', addedBy: 'p1', ...opts,
-  };
-}
 
 function pref(id: string, p: Partial<Preference>): Preference {
   return { participantId: id, maxBudget: null, likes: [], cannotEat: [], maxWalkMinutes: null, ...p };
@@ -21,6 +13,18 @@ function pref(id: string, p: Partial<Preference>): Preference {
 
 const ME = { lat: 37.4977, lng: 127.0279 };
 const north = (m: number) => ({ lat: ME.lat + m / 111_195, lng: ME.lng });
+
+let seq = 0;
+/** m: 내 위치(ME)에서 북쪽으로 몇 m 떨어진 식당인지(공개 좌표). 없으면 좌표 없는 직접 입력 후보. */
+function cand(name: string, tags: string[], opts: Partial<Candidate> & { m?: number } = {}): Candidate {
+  seq += 1;
+  const { m, ...rest } = opts;
+  const pos = m != null ? north(m) : { lat: null, lng: null };
+  return {
+    id: `c${seq}`, roomId: 'r', source: 'MANUAL', placeId: null, name, address: null, tags,
+    priceHint: null, priceType: 'UNKNOWN', addedBy: 'p1', ...pos, ...rest,
+  };
+}
 
 describe('distance', () => {
   it('Haversine 1km ≈ 1000m, 도보 = 직선 × 1.3 ÷ 75 올림', () => {
@@ -93,12 +97,13 @@ describe('filter (하드 조건, 자동 완화 없음)', () => {
   it('못 먹는 것 > 예산 > 거리 순으로 한 번만 센다', () => {
     const r = filterCandidates(
       [
-        cand('횟집', ['seafood'], { walkMinutes: 2 }),
-        cand('비싼집', ['korean'], { walkMinutes: 2, priceHint: 15000, priceType: 'USER_REPORTED' }),
-        cand('먼집', ['korean'], { walkMinutes: 16 }),
-        cand('통과', ['korean'], { walkMinutes: 6 }),
+        cand('횟집', ['seafood'], { m: 100 }),
+        cand('비싼집', ['korean'], { m: 100, priceHint: 15000, priceType: 'USER_REPORTED' }),
+        cand('먼집', ['korean'], { m: 900 }),
+        cand('통과', ['korean'], { m: 320 }),
       ],
       group,
+      ME,
     );
     expect(r.passed.map((e) => e.candidate.name)).toEqual(['통과']);
     expect(r.blocked).toEqual({ cannotEat: 1, budget: 1, distance: 1 });
@@ -106,7 +111,7 @@ describe('filter (하드 조건, 자동 완화 없음)', () => {
   });
 
   it('가격·거리를 모르면 막지 않고 미확인으로 남긴다', () => {
-    const r = filterCandidates([cand('모름', ['korean'])], group);
+    const r = filterCandidates([cand('모름', ['korean'])], group, ME);
     expect(r.passed).toHaveLength(1);
     expect(r.passed[0].walkMin).toBe(null);
     expect(r.passed[0].priceKnown).toBe(false);
@@ -119,6 +124,25 @@ describe('filter (하드 조건, 자동 완화 없음)', () => {
   });
 });
 
+describe('위치는 기기에서만(D-041)', () => {
+  it('같은 후보도 보는 사람 위치마다 도보 분이 다르고, 위치를 모르면 미확인', () => {
+    const c = cand('식당', ['korean'], { m: 400 });
+    const g = aggregatePreferences([], 1);
+    expect(recommend([c], g, ME).top[0].walkMin).toBe(7);
+    expect(recommend([c], g, north(400)).top[0].walkMin).toBe(1);
+    expect(recommend([c], g, null).top[0].walkMin).toBe(null);
+  });
+
+  it('서버로 보내는 후보에는 식당 공개 좌표만 — 사용자 위치·도보 분 필드가 없다', async () => {
+    const { nearbyToCandidate } = await import('../src/features/candidates/AddCandidateSheet.tsx');
+    const near = withinRadius([rowToPlace(['P9', '식당', north(300).lat, ME.lng, 'korean', 0, '서울'], '2026-10-31')], ME)[0];
+    const sent = nearbyToCandidate(near);
+    expect(Object.keys(sent).sort()).toEqual(['address', 'lat', 'lng', 'name', 'placeId', 'priceHint', 'source', 'tags']);
+    expect(sent.lat).toBe(near.place.lat); // 식당 좌표
+    expect(JSON.stringify(sent)).not.toContain(String(ME.lat));
+  });
+});
+
 describe('recommend', () => {
   it('좋아하는 종류가 우선, 같으면 가까운 순, 이유 문장은 그룹 수준', () => {
     const group = aggregatePreferences(
@@ -127,12 +151,13 @@ describe('recommend', () => {
     );
     const r = recommend(
       [
-        cand('먼한식', ['korean'], { walkMinutes: 7 }),
-        cand('가까운한식', ['korean'], { walkMinutes: 4 }),
-        cand('일식', ['japanese'], { walkMinutes: 2 }),
-        cand('분식', ['snack'], { walkMinutes: 1 }),
+        cand('먼한식', ['korean'], { m: 400 }),
+        cand('가까운한식', ['korean'], { m: 220 }),
+        cand('일식', ['japanese'], { m: 100 }),
+        cand('분식', ['snack'], { m: 50 }),
       ],
       group,
+      ME,
     );
     expect(r.top.map((x) => x.candidate.name)).toEqual(['가까운한식', '먼한식', '일식']);
     expect(r.top[0].reasons[0]).toBe('4명 중 2명이 원한 한식');

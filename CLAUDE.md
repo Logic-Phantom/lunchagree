@@ -6,7 +6,7 @@
 - 앱인토스 API는 추측하지 않는다: `https://developers-apps-in-toss.toss.im/llms.txt` 문서와 설치된 `node_modules/@apps-in-toss/web-framework/dist/*.d.ts`로 확인하고 `docs/DECISIONS.md`에 근거를 남긴다.
 - **없는 식당·가격·영업 상태·도보 시간·평점을 만들지 않는다.** 후보가 부족하면 부족하다고 표시한다. 테스트 데이터는 테스트 파일 안에만.
 - 카카오·네이버 장소 API 응답을 저장하지 않는다(MVP 미사용, 장소 검색 '링크'만). 후보 기본 데이터는 공공데이터 정적 타일(`data-build/`).
-- 기준점은 **내 현재 위치**(역 개념 없음). 위치는 버튼을 눌렀을 때만 묻고 앱 메모리에만 둔다 — 저장·서버 전송 금지. 공유 방에는 도보 분만.
+- 기준점은 **내 현재 위치**(역 개념 없음). 위치는 버튼을 눌렀을 때만 묻고 앱 메모리에만 둔다 — 위치와 그 파생값(거리·도보 분)의 저장·서버 전송 금지(위치기반서비스 비신고 요건, D-041). 공유 방에는 식당 공개 좌표만.
 - 못 먹는 것은 고정 칩 id만, 이유(알레르기·종교·건강)는 받지 않는다. 다른 참가자에게는 그룹 요약만 보인다. 알레르기 안전 보증 문구 금지.
 - `app/src/domain/`·`packages/room-core/src/`는 순수 TS(DOM·SDK 의존 금지). 추천 상수는 `app/src/domain/lunch-policy.ts` 한 곳.
 - 서버 쓰기는 Supabase RPC만(테이블 정책 없음). 스키마를 바꾸면 `packages/room-core/supabase/tests/rls_test.sql`도 고치고 `npm run test:sql`.

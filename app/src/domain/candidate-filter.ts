@@ -1,7 +1,8 @@
 // 하드 조건 필터. 못 먹는 것·예산·걷기 한도는 자동으로 완화하지 않는다(프롬프트 §6).
 // 모르는 값(가격·좌표·종류)은 통과시키되 '미확인'으로 표시한다 — 없는 정보를 지어내지 않는다.
+import { estimateWalkMinutes, haversineMeters } from './distance.ts';
 import { CANNOT_EAT } from './lunch-policy.ts';
-import type { BlockReason, Candidate, Evaluated, FilterResult, GroupConstraints } from './types.ts';
+import type { BlockReason, Candidate, Evaluated, FilterResult, GroupConstraints, LatLng } from './types.ts';
 
 export function excludedTags(cannotEat: readonly string[]): Set<string> {
   const out = new Set<string>();
@@ -15,25 +16,25 @@ function checkTags(cannotEat: readonly string[]): Set<string> {
   return out;
 }
 
-// 도보 분은 후보를 넣은 사람의 기기에서 그 사람 위치 기준으로 계산해 둔 값(사용자 좌표는 저장하지 않음 — D-037)
-export function evaluateCandidate(c: Candidate, cannotEat: readonly string[]): Evaluated {
+// 도보 분 = 이 기기의 현재 위치(origin) ↔ 식당 공개 좌표. 위치는 기기 밖으로 나가지 않는다(D-041). 둘 중 하나라도 없으면 미확인.
+export function evaluateCandidate(c: Candidate, origin: LatLng | null, cannotEat: readonly string[]): Evaluated {
   const risky = checkTags(cannotEat);
   // 종류를 모르는 후보는 못 먹는 것이 하나라도 있으면 확인 필요
   const needsMenuCheck = cannotEat.length > 0 && (c.tags.length === 0 || c.tags.some((t) => risky.has(t)));
   return {
     candidate: c,
-    walkMin: c.walkMinutes,
+    walkMin: origin && c.lat != null && c.lng != null ? estimateWalkMinutes(haversineMeters(origin, { lat: c.lat, lng: c.lng })) : null,
     needsMenuCheck,
     priceKnown: c.priceHint != null,
   };
 }
 
-export function filterCandidates(candidates: readonly Candidate[], group: GroupConstraints): FilterResult {
+export function filterCandidates(candidates: readonly Candidate[], group: GroupConstraints, origin: LatLng | null = null): FilterResult {
   const excluded = excludedTags(group.cannotEat);
   const blocked: Record<BlockReason, number> = { cannotEat: 0, budget: 0, distance: 0 };
   const passed: Evaluated[] = [];
   for (const c of candidates) {
-    const e = evaluateCandidate(c, group.cannotEat);
+    const e = evaluateCandidate(c, origin, group.cannotEat);
     // 막힌 이유는 우선순위 한 가지로만 센다(못 먹는 것 > 예산 > 거리)
     if (c.tags.some((t) => excluded.has(t))) blocked.cannotEat += 1;
     else if (group.budgetCap != null && c.priceHint != null && c.priceHint > group.budgetCap) blocked.budget += 1;

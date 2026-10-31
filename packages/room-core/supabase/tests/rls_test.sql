@@ -60,11 +60,14 @@ begin
     if sqlerrm <> 'HOST_ONLY' then raise; end if;
   end;
 
-  -- 6-1) 후보에는 좌표 대신 도보 분만, 상태 요약에도 좌표가 없다
-  perform public.add_candidate(room, (guest->>'participantId')::uuid, 'guest-secret-0123456789a', 'PUBLIC_DATA', 'P1', '테스트식당', '서울', 7, array['korean'], null);
+  -- 6-1) 후보에는 식당 공개 좌표만, 사용자 위치 파생값(도보 분·거리·기준점) 필드는 없다
+  perform public.add_candidate(room, (guest->>'participantId')::uuid, 'guest-secret-0123456789a', 'PUBLIC_DATA', 'P1', '테스트식당', '서울', 37.5, 127.0, array['korean'], null);
   st := public.get_room_state(room, (guest->>'participantId')::uuid, 'guest-secret-0123456789a');
-  if (st->'candidates'->0->>'walkMinutes')::int <> 7 then raise exception 'walkMinutes %', st->'candidates'; end if;
-  if st::text ~ '"(lat|lng|stationId)"' then raise exception 'location field leaked'; end if;
+  if (st->'candidates'->0->>'lat')::float <> 37.5 then raise exception 'lat %', st->'candidates'; end if;
+  if st::text ~ '"(walkMinutes|walk_minutes|distance|stationId|origin)"' then raise exception 'user location field leaked'; end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and column_name ~ '^(walk_minutes|user_lat|user_lng|origin|station_id)$') then
+    raise exception 'user location column exists';
+  end if;
 
   -- 7) 같은 익명 키로 다시 참여하면 새 참가자를 만들지 않는다
   guest := public.join_room('AAAAAAAAAAAAAAAAAAAAAA', repeat('b', 64), 'guest-secret-new-0123456', '지민2');

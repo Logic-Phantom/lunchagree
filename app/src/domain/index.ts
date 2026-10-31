@@ -2,7 +2,7 @@
 import { filterCandidates } from './candidate-filter.ts';
 import { MAX_RECOMMENDATIONS } from './lunch-policy.ts';
 import { rankCandidates, topRecommendations } from './scoring.ts';
-import type { Candidate, FilterResult, GroupConstraints, Recommendation } from './types.ts';
+import type { Candidate, FilterResult, GroupConstraints, LatLng, Recommendation } from './types.ts';
 
 export * from './types.ts';
 export * from './lunch-policy.ts';
@@ -23,8 +23,9 @@ export interface RecommendResult {
   insufficient: boolean;
 }
 
-export function recommend(candidates: readonly Candidate[], group: GroupConstraints): RecommendResult {
-  const { passed, blocked } = filterCandidates(candidates, group);
+/** origin = 이 기기의 현재 위치(없으면 거리 미확인). 참가자마다 자기 위치 기준 도보 분을 본다. */
+export function recommend(candidates: readonly Candidate[], group: GroupConstraints, origin: LatLng | null = null): RecommendResult {
+  const { passed, blocked } = filterCandidates(candidates, group, origin);
   const ranked = rankCandidates(passed, group);
   const top = topRecommendations(ranked);
   return { top, rest: ranked.slice(top.length), blocked, insufficient: top.length < MAX_RECOMMENDATIONS };

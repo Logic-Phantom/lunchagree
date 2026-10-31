@@ -20,8 +20,8 @@ export function Candidates() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { view, repo, error, reload, expired, isHost } = useRoom(id);
-  const rec = useRecommendation(view);
   const { location, state: locState, locate } = useMyLocation();
+  const rec = useRecommendation(view, location);
   const nearby = useNearbyPlaces(location);
   const [showMap, setShowMap] = useState(false);
   const [mapSelected, setMapSelected] = useState<NearbyPlace | null>(null);
@@ -298,7 +298,7 @@ export function Candidates() {
             {detail.candidate.address && <p className="caption">{detail.candidate.address}</p>}
             <p className="caption">
               {detail.candidate.source === 'PUBLIC_DATA' ? '공공데이터에서 고른 곳' : '직접 입력한 곳'}
-              {detail.walkMin != null ? ' · 도보 시간은 추가한 사람 위치 기준 추정' : ''}
+              {detail.walkMin != null ? ' · 도보 시간은 내 위치 기준 추정' : detail.candidate.lat != null ? ' · 내 위치를 확인하면 거리가 보여요' : ''}
               {detail.candidate.tags.length ? ` · ${detail.candidate.tags.map(tagLabel).join('·')}` : ''}
             </p>
             <MapLinks name={detail.candidate.name} address={detail.candidate.address} />

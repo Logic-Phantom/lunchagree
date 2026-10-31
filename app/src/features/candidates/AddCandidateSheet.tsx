@@ -9,8 +9,8 @@ import { PlaceDetailSheet } from '../location/PlaceDetailSheet';
 import { LOCATION_NOTICE, locationErrorText, useMyLocation, useNearbyPlaces } from '../location/useMyLocation';
 
 export function nearbyToCandidate(n: NearbyPlace): NewCandidate {
-  // 좌표는 저장하지 않고 '내 위치 기준 도보 분'만 남긴다(D-037)
-  return { source: 'PUBLIC_DATA', placeId: n.place.id, name: n.place.name, address: n.place.address, walkMinutes: n.walkMin, tags: n.place.tags, priceHint: null };
+  // 식당의 공개 좌표만 넘긴다. 내 위치·내 기준 도보 분은 서버로 보내지 않는다(D-041)
+  return { source: 'PUBLIC_DATA', placeId: n.place.id, name: n.place.name, address: n.place.address, lat: n.place.lat, lng: n.place.lng, tags: n.place.tags, priceHint: null };
 }
 
 export function AddCandidateSheet({
@@ -44,7 +44,7 @@ export function AddCandidateSheet({
   const submitManual = async () => {
     if (!name.trim() || !priceValid || busy) return;
     setBusy(true);
-    await onAdd({ source: 'MANUAL', placeId: null, name: name.trim().slice(0, 40), address: null, walkMinutes: null, tags: tag ? [tag] : [], priceHint: priceNum });
+    await onAdd({ source: 'MANUAL', placeId: null, name: name.trim().slice(0, 40), address: null, lat: null, lng: null, tags: tag ? [tag] : [], priceHint: priceNum });
     setBusy(false);
     setName('');
     setTag(null);

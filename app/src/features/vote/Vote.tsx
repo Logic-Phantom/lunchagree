@@ -8,13 +8,15 @@ import { Button, Header, Loading, Screen, Toast } from '../../components/ui';
 import { errorMessage } from '../../data/room-repo';
 import { outcomeFromCounts, voteStatusLabel } from '../../domain';
 import { metaLine } from '../candidates/PlaceCard';
+import { useMyLocation } from '../location/useMyLocation';
 import { participantIndex, useRecommendation, useRoom } from '../room/useRoom';
 
 export function Vote() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { view, repo, error, reload, isHost } = useRoom(id);
-  const rec = useRecommendation(view);
+  const { location } = useMyLocation();
+  const rec = useRecommendation(view, location);
   const [page, setPage] = useState(0);
   const [voter, setVoter] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
