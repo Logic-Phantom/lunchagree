@@ -8,6 +8,7 @@ import { Avatar } from '../../components/Avatar';
 import { Icon } from '../../components/Icon';
 import { Button, Header, Row, Screen, SectionTitle, Sheet, Toast } from '../../components/ui';
 import { defaultMode, errorMessage, repoFor } from '../../data/room-repo';
+import { logEvent } from '../../platform/toss';
 import { loadDefaultPreference, saveDefaultPreference } from '../../storage/records';
 import { ConditionEditor, EMPTY_PREFERENCE, type PreferenceValue } from '../preferences/ConditionEditor';
 
@@ -56,6 +57,7 @@ export function RoomCreate() {
         hostPreference: pref,
         others,
       });
+      void logEvent('room_created');
       navigate(`/room/${roomId}`, { replace: true });
     } catch (e) {
       flash(errorMessage(e));

@@ -80,6 +80,20 @@ export async function openExternal(url: string): Promise<void> {
   window.open(url, '_blank', 'noopener');
 }
 
+/** 핵심 지표용 행동 이벤트. 이름만 보낸다 — 위치·식당·조건·닉네임은 넣지 않는다(D-054). */
+export type AppEvent = 'room_created' | 'room_joined' | 'lunch_decided' | 'random_decided';
+
+/** 토스 통계로 이벤트를 남긴다. 토스 밖이거나 실패해도 앱 동작에 영향을 주지 않는다. 3.9.0 타입: Analytics.log, 미지원 앱 버전은 조용히 무시. */
+export async function logEvent(name: AppEvent): Promise<void> {
+  if (!isInToss()) return;
+  try {
+    const { Analytics } = await sdk();
+    await Analytics.log({ log_name: name, log_type: 'event', params: {} });
+  } catch {
+    // 통계 실패는 사용자에게 알리지 않는다
+  }
+}
+
 const DEVICE_KEY = 'device-anon-key';
 
 /**

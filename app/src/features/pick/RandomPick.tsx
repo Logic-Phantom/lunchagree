@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Header, Notice, Screen, SectionTitle, Toast } from '../../components/ui';
 import { aggregatePreferences, blockedSummary, PLACE_DISCLAIMER, pickRandomNearby, type RandomPick as PickResult } from '../../domain';
+import { logEvent } from '../../platform/toss';
 import { addDecision, loadDefaultPreference, saveDefaultPreference } from '../../storage/records';
 import { metaLine, PlaceCard } from '../candidates/PlaceCard';
 import { MapLinks } from '../location/PlaceDetailSheet';
@@ -51,6 +52,7 @@ export function RandomPick() {
     const pick = result?.pick;
     if (!pick) return;
     await addDecision({ roomId: `pick-${Date.now()}`, roomTitle: '랜덤 뽑기', placeName: pick.rec.candidate.name, tags: pick.rec.candidate.tags, decidedAt: new Date().toISOString() });
+    void logEvent('random_decided');
     setToast('결정 기록에 남겼어요');
     setTimeout(() => navigate('/', { replace: true }), 900);
   };

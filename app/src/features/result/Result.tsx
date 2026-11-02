@@ -8,6 +8,7 @@ import { Icon } from '../../components/Icon';
 import { Button, Header, Loading, Notice, Screen, SectionTitle, Toast } from '../../components/ui';
 import { errorMessage } from '../../data/room-repo';
 import { MENU_CHECK_NOTICE, outcomeFromCounts } from '../../domain';
+import { logEvent } from '../../platform/toss';
 import { addDecision } from '../../storage/records';
 import { metaLine, PlaceCard } from '../candidates/PlaceCard';
 import { useMyLocation } from '../location/useMyLocation';
@@ -46,6 +47,7 @@ export function Result() {
   useEffect(() => {
     if (!view || !decidedRaw || saved.current) return;
     saved.current = true;
+    void logEvent('lunch_decided');
     void addDecision({ roomId: view.room.id, roomTitle: view.room.title, placeName: decidedRaw.name, tags: decidedRaw.tags, decidedAt: new Date().toISOString() });
   }, [view, decidedRaw]);
 

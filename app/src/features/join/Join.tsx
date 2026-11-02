@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isValidToken, normalizeShortCode } from '@jeomsimhabui/room-core';
 import { Button, Header, Notice, Screen, Toast } from '../../components/ui';
 import { errorMessage, joinRemote, remoteConfigured } from '../../data/room-repo';
+import { logEvent } from '../../platform/toss';
 
 export function Join() {
   const [params] = useSearchParams();
@@ -36,6 +37,7 @@ export function Join() {
     setBusy(true);
     try {
       const roomId = await joinRemote(isValidToken(token) ? { token } : { code: code! }, nickname);
+      void logEvent('room_joined');
       navigate(`/room/${roomId}`, { replace: true });
     } catch (e) {
       setToast(errorMessage(e));
