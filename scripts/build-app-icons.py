@@ -43,9 +43,11 @@ def main() -> None:
     out_brand = ROOT / 'app' / 'public' / 'brand'
     out_brand.mkdir(parents=True, exist_ok=True)
 
-    # 2. 콘솔 로고: 흰 배경 정사각(플랫폼이 둥글림을 직접 적용). 아이콘 바탕이 흰색이라 잘린 모서리를 흰색으로 채워도 원본과 같다.
+    # 2. 콘솔 로고: 흰 배경 정사각(플랫폼이 둥글림을 직접 적용).
+    #    아이콘 바탕은 순백이 아니라 246~254라 모서리만 흰색으로 채우면 둥근 사각이 남는다(콘솔 반려, D-053) → 밝기 244 이상을 순백으로 편다.
     full = Image.composite(art, Image.new('RGB', art.size, (255, 255, 255)), shape)
-    full.resize((600, 600), Image.LANCZOS).save(ROOT / 'assets' / 'brand' / 'console-icon-600.png', optimize=True)
+    console = full.resize((600, 600), Image.LANCZOS).point(lambda v: 255 if v >= 244 else v * 255 // 244)
+    console.save(ROOT / 'assets' / 'brand' / 'console-icon-600.png', optimize=True)
 
     # 3. 앱 안 로고: 둥근 사각 유지, 바깥 투명.
     logo = art.convert('RGBA')
