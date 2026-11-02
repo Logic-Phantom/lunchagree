@@ -14,6 +14,7 @@ export * from './explanations.ts';
 export * from './voting.ts';
 export * from './tiles.ts';
 export * from './external-map.ts';
+export * from './nearby.ts';
 
 export interface RecommendResult {
   top: Recommendation[];

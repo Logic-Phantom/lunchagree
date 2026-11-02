@@ -14,7 +14,7 @@
     "typecheck": "npm run typecheck --workspace packages/room-core && npm run typecheck --workspace data-build && npm run typecheck --workspace app",
     "data:build": "npm run build --workspace data-build",
     "licenses": "node scripts/generate-oss-licenses.mjs",
-    "icons": "python scripts/build-app-icons.py",
+    "icons": "python3 scripts/build-app-icons.py || python scripts/build-app-icons.py",
     "test:sql": "npm run test:sql --workspace packages/room-core",
     "data:fetch": "npm run fetch:api --workspace data-build --",
     "data:crs": "npm run verify:crs --workspace data-build",

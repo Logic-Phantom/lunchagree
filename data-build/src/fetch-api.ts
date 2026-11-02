@@ -62,7 +62,7 @@ export function slim(item: Item): Item {
 /** 네트워크 오류(연결 끊김·시간 초과)와 5xx는 일시적이라 다시 시도한다. 인증·한도 등 API 오류는 바로 멈춘다. */
 export class TransientError extends Error {}
 const RETRIES = 5;
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 60_000; // 2026-11-02 Data Build #5: 평일 아침 응답 지연으로 30초 초과가 반복됨
 
 export async function withRetry<T>(fn: () => Promise<T>, retries = RETRIES, baseMs = 2000): Promise<T> {
   for (let attempt = 1; ; attempt += 1) {

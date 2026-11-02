@@ -17,7 +17,7 @@ function listLabel(ids: string[], label: (id: string) => string, empty: string) 
   return `${label(ids[0])} 외 ${ids.length - 1}개`;
 }
 
-export function ConditionEditor({ value, onChange }: { value: PreferenceValue; onChange: (v: PreferenceValue) => void }) {
+export function ConditionEditor({ value, onChange, hideBudget }: { value: PreferenceValue; onChange: (v: PreferenceValue) => void; hideBudget?: boolean }) {
   const [open, setOpen] = useState<SheetKind>(null);
   const [draft, setDraft] = useState<string[]>([]);
   const close = () => setOpen(null);
@@ -30,7 +30,7 @@ export function ConditionEditor({ value, onChange }: { value: PreferenceValue; o
   return (
     <>
       <div className="row-list">
-        <Row icon="wallet" label="예산" value={BUDGET_OPTIONS.find((o) => o.value === value.maxBudget)?.label ?? '상관없음'} onClick={() => setOpen('budget')} />
+        {!hideBudget && <Row icon="wallet" label="예산" value={BUDGET_OPTIONS.find((o) => o.value === value.maxBudget)?.label ?? '상관없음'} onClick={() => setOpen('budget')} />}
         <Row icon="noEat" label="못 먹는 것" value={listLabel(value.cannotEat, cannotEatLabel, '없음')} onClick={() => openMulti('cannotEat')} />
         <Row icon="walk" label="걷기 한도" value={WALK_OPTIONS.find((o) => o.value === value.maxWalkMinutes)?.label ?? '상관없음'} onClick={() => setOpen('walk')} />
         <Row icon="heart" label="먹고 싶은 것" value={listLabel(value.likes, tagLabel, '아무거나')} onClick={() => openMulti('likes')} />

@@ -10,7 +10,7 @@
    (개발용) raw/15093755_역사정보.xlsx ─ xlsx.ts ─ reference-points.ts → fixtures/reference-points.json(좌표계 판정·측정 지점)
 
 [미니앱 — app/ (Vite + React + TS + @apps-in-toss/web-framework 3.9.0, CSR · 해시 라우팅)]
-  domain/      순수 TS: lunch-policy(상수) · group-constraints · distance · tiles · candidate-filter · scoring · explanations · voting · external-map
+  domain/      순수 TS: lunch-policy(상수) · group-constraints · distance · tiles · candidate-filter · scoring · explanations · voting · external-map · nearby(주변 추천·지도 핀 선별)
   data/        places-api(내 위치 반경 타일 병렬 fetch·1.8초 타임아웃·캐시) · room-repo(local | remote RPC)
   features/    home · room-create · preferences · candidates · vote · result · share · join · history · settings · room(useRoom 훅)
                location(useMyLocation · NearbyMap 자체 SVG 지도 · PlaceDetailSheet 카카오맵/네이버지도 링크)

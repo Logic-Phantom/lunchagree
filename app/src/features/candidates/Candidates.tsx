@@ -1,4 +1,4 @@
-// 온보딩 03 '추천 결과' = 방의 중심 화면. 참가자 입력 현황 · 그룹 조건 · 추천 3개 · 내 주변 지도 · 다른 후보 보기 · 후보 추가 · 투표 시작.
+// 온보딩 03 '추천 결과' = 방의 중심 화면. 참가자 입력 현황 · 그룹 조건 · 추천 3개 · 다른 후보 보기 · 후보 추가 · 내 주변 추천·지도 · 투표 시작.
 // 후보를 누르면 카카오맵·네이버지도 장소 검색으로 영업시간을 확인할 수 있다(D-039).
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { Avatar } from '../../components/Avatar';
 import { Icon } from '../../components/Icon';
 import { Button, Header, Loading, Notice, Screen, SectionTitle, Sheet, Toast } from '../../components/ui';
 import { errorMessage, type NewCandidate } from '../../data/room-repo';
-import { blockedSummary, groupSummaryChips, PLACE_DISCLAIMER, tagLabel, type Evaluated, type NearbyPlace } from '../../domain';
+import { blockedSummary, groupSummaryChips, pickRandomNearby, PLACE_DISCLAIMER, suggestNearby, tagLabel, type Evaluated, type NearbyPlace } from '../../domain';
 import { NearbyMap } from '../location/NearbyMap';
 import { MapLinks, PlaceDetailSheet } from '../location/PlaceDetailSheet';
 import { LOCATION_NOTICE, locationErrorText, useMyLocation, useNearbyPlaces } from '../location/useMyLocation';
@@ -31,7 +31,13 @@ export function Candidates() {
   const [toast, setToast] = useState<string | null>(null);
   const [memberOpen, setMemberOpen] = useState(false);
   const [memberName, setMemberName] = useState('');
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(() => new Set());
   const existing = useMemo(() => new Set((view?.candidates ?? []).map((c) => c.placeId).filter((x): x is string => !!x)), [view]);
+  // 기기 안에서만 계산한다. 위치·도보 분은 서버로 보내지 않고, 후보에 넣을 때 식당 공개 좌표만 넘긴다(D-041)
+  const suggestions = useMemo(
+    () => (view && location && nearby?.status === 'ok' ? suggestNearby(nearby.places, view.group, location, { excludeIds: existing, skipIds: skipped }) : null),
+    [view, location, nearby, existing, skipped],
+  );
 
   const flash = (m: string) => {
     setToast(m);
@@ -199,7 +205,7 @@ export function Candidates() {
       {rec.insufficient && (
         <Notice tone="warn">
           {view.candidates.length === 0
-            ? '아직 후보가 없어요. 주변 음식점에서 고르거나 직접 추가해 주세요.'
+            ? '아직 후보가 없어요. 내 주변 추천에서 고르거나 직접 추가해 주세요.'
             : '조건에 맞는 후보가 부족해요. ' + (blockedSummary(rec.blocked).join(' · ') || '후보를 더 추가해 주세요.')}
         </Notice>
       )}
@@ -227,51 +233,91 @@ export function Candidates() {
 
       <SectionTitle
         right={
-          location ? (
+          location && nearby?.status === 'ok' ? (
             <button type="button" className="text-link" onClick={() => setShowMap(!showMap)}>
               {showMap ? '지도 접기' : '지도 펼치기'}
             </button>
           ) : undefined
         }
       >
-        내 주변 지도
+        내 주변 추천
       </SectionTitle>
       {!location ? (
         <div className="card">
           <p className="caption">{LOCATION_NOTICE}</p>
-          <Button
-            variant="outline"
-            icon="pin"
-            disabled={locState === 'locating'}
-            onClick={async () => {
-              await locate();
-              setShowMap(true);
-            }}
-          >
-            {locState === 'locating' ? '위치 확인 중…' : '내 위치로 지도 보기'}
+          <Button variant="outline" icon="pin" disabled={locState === 'locating'} onClick={() => void locate()}>
+            {locState === 'locating' ? '위치 확인 중…' : '내 위치로 주변 추천 받기'}
           </Button>
           {locationErrorText(locState) && <p className="caption caption--warn">{locationErrorText(locState)}</p>}
         </div>
+      ) : nearby == null ? (
+        <p className="loading">주변 음식점을 불러오는 중…</p>
+      ) : nearby.status !== 'ok' ? (
+        <p className="empty">{nearby.status === 'error' ? '주변 음식점을 불러오지 못했어요. 후보를 직접 추가해 주세요.' : '아직 음식점 데이터가 준비되지 않았어요. 후보를 직접 추가해 주세요.'}</p>
       ) : (
-        showMap &&
-        (nearby?.status === 'ok' ? (
-          <>
-            <NearbyMap
-              center={location}
-              pins={nearby.places.map((n) => {
-                const ri = rec.top.findIndex((r) => r.candidate.placeId === n.place.id);
-                return { nearby: n, inRoom: existing.has(n.place.id), rank: ri >= 0 ? ri + 1 : undefined };
-              })}
-              selectedId={mapSelected?.place.id}
-              onSelect={setMapSelected}
-            />
-            <p className="caption">노란 핀은 이 방 후보, 숫자는 추천 순위예요. 핀을 누르면 영업시간을 지도 앱에서 확인할 수 있어요.</p>
-          </>
-        ) : nearby == null ? (
-          <p className="loading">주변 음식점을 불러오는 중…</p>
-        ) : (
-          <p className="empty">{nearby.status === 'error' ? '주변 음식점을 불러오지 못했어요.' : '아직 음식점 데이터가 준비되지 않았어요. 후보를 직접 추가해 주세요.'}</p>
-        ))
+        <>
+          {suggestions && suggestions.items.length > 0 ? (
+            <>
+              <p className="caption">
+                반경 1km {nearby.places.length.toLocaleString('ko-KR')}곳 중 조건에 맞는 {suggestions.total.toLocaleString('ko-KR')}곳에서 골랐어요. 종류는 인허가 정보 기준이에요.
+              </p>
+              <ul className="card-list">
+                {suggestions.items.map(({ rec, nearby: n }) => (
+                  <li key={rec.candidate.id} className="suggest-row">
+                    <PlaceCard
+                      e={rec}
+                      reason={rec.reasons[0]?.includes('명이 원한') ? rec.reasons[0] : n.place.tagSource === 'estimated' ? '종류는 이름으로 추정' : undefined}
+                      onClick={() => setMapSelected(n)}
+                    />
+                    {!expired && (
+                      <button type="button" className="suggest-row__add" aria-label={`${n.place.name} 후보에 넣기`} onClick={() => void add(nearbyToCandidate(n))}>
+                        <Icon name="plus" size={20} />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant="outline"
+                icon="refresh"
+                onClick={() => {
+                  const { pick } = pickRandomNearby(nearby.places, view.group, location, { lastId: mapSelected?.place.id });
+                  if (pick) setMapSelected(pick.nearby);
+                }}
+              >
+                조건에 맞는 곳 랜덤으로 하나 뽑기
+              </Button>
+              {suggestions.total > suggestions.items.length && (
+                <Button
+                  variant="muted"
+                  onClick={() => setSkipped(suggestions.remaining > 0 ? new Set([...skipped, ...suggestions.items.map((i) => i.rec.candidate.id)]) : new Set())}
+                >
+                  {suggestions.remaining > 0 ? '다른 곳 보기' : '처음부터 다시 보기'}
+                </Button>
+              )}
+            </>
+          ) : (
+            <Notice tone="warn">
+              {nearby.places.length === 0
+                ? '반경 1km 안에서 찾은 음식점이 없어요. 후보를 직접 추가해 주세요.'
+                : `조건에 맞는 주변 음식점이 없어요. ${suggestions ? blockedSummary(suggestions.blocked).join(' · ') : ''}`}
+            </Notice>
+          )}
+          {showMap && (
+            <>
+              <NearbyMap
+                center={location}
+                pins={nearby.places.map((n) => {
+                  const ri = rec.top.findIndex((r) => r.candidate.placeId === n.place.id);
+                  return { nearby: n, inRoom: existing.has(n.place.id), rank: ri >= 0 ? ri + 1 : undefined };
+                })}
+                selectedId={mapSelected?.place.id}
+                onSelect={setMapSelected}
+              />
+              <p className="caption">노란 핀은 이 방 후보, 숫자가 있는 흰 핀은 같은 건물 가게 수예요. 핀을 누르면 영업시간을 지도 앱에서 확인할 수 있어요.</p>
+            </>
+          )}
+        </>
       )}
 
       <p className="caption">{PLACE_DISCLAIMER}</p>

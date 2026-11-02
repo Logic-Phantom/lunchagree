@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Button, Chip, Notice, Sheet } from '../../components/ui';
 import type { NewCandidate } from '../../data/room-repo';
-import { FOOD_TAGS, tagLabel, type NearbyPlace } from '../../domain';
+import { FOOD_TAGS, NEARBY_LIST_MAX, tagLabel, type NearbyPlace } from '../../domain';
 import { NearbyMap } from '../location/NearbyMap';
 import { PlaceDetailSheet } from '../location/PlaceDetailSheet';
 import { LOCATION_NOTICE, locationErrorText, useMyLocation, useNearbyPlaces } from '../location/useMyLocation';
@@ -91,7 +91,7 @@ export function AddCandidateSheet({
           ) : (
             <>
               <div className="nearby-head">
-                <span className="muted">반경 1km · {nearby.places.length}곳</span>
+                <span className="muted">반경 1km · {nearby.places.length.toLocaleString('ko-KR')}곳</span>
                 <div className="segmented segmented--small" role="tablist" aria-label="보기 방식">
                   <button type="button" role="tab" aria-selected={view === 'list'} className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>목록</button>
                   <button type="button" role="tab" aria-selected={view === 'map'} className={view === 'map' ? 'on' : ''} onClick={() => setView('map')}>지도</button>
@@ -106,7 +106,7 @@ export function AddCandidateSheet({
                 />
               ) : (
                 <ul className="search-list">
-                  {list.slice(0, 60).map((n) => (
+                  {list.slice(0, NEARBY_LIST_MAX).map((n) => (
                     <li key={n.place.id}>
                       <button type="button" onClick={() => setSelected(n)}>
                         <strong>
@@ -122,6 +122,10 @@ export function AddCandidateSheet({
                   ))}
                 </ul>
               )}
+              {view === 'list' && list.length > NEARBY_LIST_MAX && (
+                <p className="caption">가까운 {NEARBY_LIST_MAX}곳만 보여요. 나머지 {(list.length - NEARBY_LIST_MAX).toLocaleString('ko-KR')}곳은 이름·종류로 검색해 주세요.</p>
+              )}
+              {view === 'list' && list.length === 0 && <p className="empty">검색 결과가 없어요. 직접 입력으로 추가할 수 있어요.</p>}
               <p className="caption">출처: 행정안전부 일반음식점 인허가 정보(기준일 {nearby.baseDate}). 실제 상호·영업 여부·영업시간은 가게를 눌러 지도 앱에서 확인해 주세요.</p>
             </>
           )

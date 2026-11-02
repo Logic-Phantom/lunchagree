@@ -1,5 +1,4 @@
 -- RLS·RPC 검사 (Cutpick/supabase/tests/rls_test.sql 형식). 실행: supabase test db  또는 psql로 로컬 DB에 실행.
--- 상태: 작성만 함 — Supabase 프로젝트가 아직 없어 실제 실행 전(README 상태표 참고).
 -- 실패하면 exception으로 멈추고, 끝까지 가면 'RLS OK'를 출력한다. 전체를 트랜잭션으로 감싸 흔적을 남기지 않는다.
 begin;
 
@@ -13,6 +12,7 @@ select set_config('test.host', (public.create_room(
 do $$ begin
   if (select count(*) from public.rooms) <> 0 then raise exception 'anon can read rooms'; end if;
   if (select count(*) from public.preferences) <> 0 then raise exception 'anon can read preferences'; end if;
+exception when insufficient_privilege then null; -- 실프로젝트(테이블 자동 공개 끔)는 권한 오류로 더 일찍 막힌다
 end $$;
 
 -- 3) 직접 insert 불가

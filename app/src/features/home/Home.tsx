@@ -55,6 +55,9 @@ export function Home() {
           <Button variant="outline" icon="link" onClick={() => setJoinOpen(true)}>
             링크로 참여하기
           </Button>
+          <Button variant="muted" icon="refresh" onClick={() => navigate('/pick')}>
+            혼자 빠르게, 랜덤으로 뽑기
+          </Button>
         </div>
 
         <section className="panel">

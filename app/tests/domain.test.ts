@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aggregatePreferences, blockedSummary, estimateWalkMinutes, filterCandidates, groupSummaryChips, haversineMeters,
-  kakaoMapSearchUrl, mapSearchQuery, naverMapSearchUrl, outcomeFromCounts, recommend, tileKey, tilesAround,
-  type Candidate, type Preference, type TileFile,
+  aggregatePreferences, blockedSummary, estimateWalkMinutes, filterCandidates, groupPinsByCoord, groupSummaryChips, haversineMeters,
+  kakaoMapSearchUrl, mapSearchQuery, mapViewRadius, MAP_MAX_PINS, naverMapSearchUrl, outcomeFromCounts, pickRandomNearby, recommend, selectMapPlaces, suggestNearby, tileKey, tilesAround,
+  type Candidate, type NearbyPlace, type Preference, type TileFile,
 } from '../src/domain/index.ts';
 import { rowToPlace, withinRadius } from '../src/data/places-api.ts';
 
@@ -195,5 +195,90 @@ describe('voting', () => {
     expect(outcomeFromCounts({ a: 2, b: 1 }, ['a', 'b'])).toEqual({ kind: 'WINNER', candidateId: 'a' });
     expect(outcomeFromCounts({ a: 1, b: 1 }, ['a', 'b'])).toEqual({ kind: 'TIE', candidateIds: ['a', 'b'] });
     expect(outcomeFromCounts({}, ['a'])).toEqual({ kind: 'NO_VOTES' });
+  });
+});
+
+describe('내 주변 추천·지도(실데이터 규모)', () => {
+  const near = (id: string, tags: string[], m: number, lat = north(m).lat, lng = ME.lng): NearbyPlace => ({
+    place: { id, name: `테스트${id}`, address: '테스트로 1', lat, lng, tags, tagSource: 'source', baseDate: '2026-01-01' },
+    distanceM: m,
+    walkMin: estimateWalkMinutes(m),
+  });
+  const group = (prefs: Partial<Preference>[] = [{}]) => aggregatePreferences(prefs.map((p, i) => pref(`p${i}`, p)), prefs.length);
+  const ids = (r: { items: { nearby: NearbyPlace }[] }) => r.items.map((i) => i.nearby.place.id);
+
+  it('종류 모르는 곳·방에 있는 곳·아무도 원하지 않은 카페는 추천하지 않고, 부족하면 있는 만큼만 준다', () => {
+    const places = [near('a', [], 10), near('b', ['cafe'], 20), near('c', ['korean'], 30), near('d', ['western'], 40)];
+    const r = suggestNearby(places, group(), ME, { excludeIds: new Set(['d']) });
+    expect(ids(r)).toEqual(['c']);
+    expect(r.total).toBe(1);
+  });
+
+  it('누군가 카페를 원하면 추천에 넣고, 원한 종류를 앞세운다', () => {
+    const places = [near('k', ['korean'], 10), near('c', ['cafe'], 300)];
+    expect(ids(suggestNearby(places, group([{ likes: ['cafe'] }]), ME))).toEqual(['c', 'k']);
+  });
+
+  it('못 먹는 것·걷기 한도는 완화하지 않고 막힌 수를 알려 준다', () => {
+    const places = [near('s', ['seafood'], 10), near('f', ['korean'], 900), near('o', ['western'], 100)];
+    const r = suggestNearby(places, group([{ cannotEat: ['seafood'], maxWalkMinutes: 5 }]), ME);
+    expect(ids(r)).toEqual(['o']);
+    expect(r.blocked).toMatchObject({ cannotEat: 1, distance: 1 });
+  });
+
+  it("'메뉴 확인 필요'가 아닌 곳을 먼저 보여 주고 뺀 곳에 표시를 남긴다", () => {
+    const places = [near('k', ['korean'], 10), near('w', ['western'], 500)];
+    const r = suggestNearby(places, group([{ cannotEat: ['spicy'] }]), ME);
+    expect(ids(r)).toEqual(['w', 'k']);
+    expect(r.items[1].rec.needsMenuCheck).toBe(true);
+  });
+
+  it('아무도 고르지 않은 종류가 한 번에 몰리지 않고, 넘긴 곳은 다시 나오지 않으며 나머지 수가 맞다', () => {
+    const places = [...Array.from({ length: 10 }, (_, i) => near(`k${i}`, ['korean'], i)), near('w', ['western'], 800), near('n', ['noodle'], 900)];
+    const first = suggestNearby(places, group(), ME);
+    expect(ids(first).filter((x) => x.startsWith('k'))).toHaveLength(3); // 종류 제한 2 + 남은 칸 채움
+    expect(ids(first)).toEqual(expect.arrayContaining(['w', 'n']));
+    const second = suggestNearby(places, group(), ME, { skipIds: new Set(ids(first)) });
+    expect(ids(second).some((x) => ids(first).includes(x))).toBe(false);
+    expect(second.remaining).toBe(12 - 5 - 5);
+  });
+
+  it('랜덤 뽑기: 조건을 통과한 곳에서만 고르게 뽑고, 없으면 만들지 않는다', () => {
+    const places = [near('a', ['korean'], 10), near('b', ['western'], 20), near('c', ['seafood'], 30), near('u', [], 40), near('f', ['noodle'], 900)];
+    const g = group([{ cannotEat: ['raw'], maxWalkMinutes: 5 }]);
+    const seen = new Set<string>();
+    for (let i = 0; i < 20; i += 1) seen.add(pickRandomNearby(places, g, ME, { random: () => i / 20 }).pick!.nearby.place.id);
+    expect([...seen].sort()).toEqual(['a', 'b']);
+    expect(pickRandomNearby(places, g, ME).pool).toBe(2);
+    const none = pickRandomNearby([near('c', ['seafood'], 30)], g, ME);
+    expect(none.pick).toBeNull();
+    expect(none.blocked.cannotEat).toBe(1);
+    expect(pickRandomNearby([], g, ME).pick).toBeNull();
+  });
+
+  it('랜덤 뽑기: 먹고 싶은 종류를 앞세우고, 직전에 뽑은 곳은 다른 곳이 있으면 피한다', () => {
+    const places = [near('k', ['korean'], 10), near('w1', ['western'], 20), near('w2', ['western'], 30)];
+    const g = group([{ likes: ['western'] }]);
+    expect(pickRandomNearby(places, g, ME, { random: () => 0.99 }).pick!.nearby.place.id).toBe('w2');
+    expect(pickRandomNearby(places, g, ME, { random: () => 0.99, lastId: 'w2' }).pick!.nearby.place.id).toBe('w1');
+    expect(pickRandomNearby([near('k', ['korean'], 10)], group(), ME, { lastId: 'k' }).pick!.nearby.place.id).toBe('k');
+  });
+
+  it('지도 핀은 가까운 곳으로 제한하되 방 후보는 멀어도 남고, 반경은 그린 곳에 맞춘다', () => {
+    const pins = Array.from({ length: 2500 }, (_, i) => ({ nearby: near(`p${i}`, ['korean'], i * 0.4), inRoom: i === 2400 }));
+    const shown = selectMapPlaces(pins, (p) => p.inRoom);
+    expect(shown).toHaveLength(MAP_MAX_PINS + 1);
+    expect(shown.at(-1)!.nearby.place.id).toBe('p2400');
+    expect(mapViewRadius(shown.slice(0, MAP_MAX_PINS).map((p) => p.nearby.distanceM))).toBe(250);
+    expect(mapViewRadius(shown.map((p) => p.nearby.distanceM))).toBe(1000);
+    expect(mapViewRadius([])).toBe(250);
+    expect(mapViewRadius([300], 200)).toBe(200);
+  });
+
+  it('같은 좌표의 가게는 한 핀으로 묶는다', () => {
+    const a = { nearby: near('a', [], 10, 37.5, 127) };
+    const b = { nearby: near('b', [], 10, 37.5, 127) };
+    const c = { nearby: near('c', [], 20, 37.6, 127) };
+    expect(groupPinsByCoord([a, b, c]).map((g) => g.length)).toEqual([2, 1]);
   });
 });

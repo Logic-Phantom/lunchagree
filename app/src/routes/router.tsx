@@ -6,6 +6,7 @@ import { Home } from '../features/home/Home';
 import { Join } from '../features/join/Join';
 import { PreferenceScreen } from '../features/preferences/PreferenceScreen';
 import { Result } from '../features/result/Result';
+import { RandomPick } from '../features/pick/RandomPick';
 import { RoomCreate } from '../features/room-create/RoomCreate';
 import { Settings, SettingsPage } from '../features/settings/Settings';
 import { ShareScreen } from '../features/share/ShareScreen';
@@ -39,6 +40,7 @@ export const router = createHashRouter([
       { path: '/', element: <Home /> },
       { path: '/create', element: <RoomCreate /> },
       { path: '/join', element: <Join /> },
+      { path: '/pick', element: <RandomPick /> },
       { path: '/room/:id', element: <Candidates /> },
       { path: '/room/:id/pref/:pid', element: <PreferenceScreen /> },
       { path: '/room/:id/vote', element: <Vote /> },

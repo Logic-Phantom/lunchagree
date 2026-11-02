@@ -959,6 +959,26 @@ ul {
 .pin--sel .pin__rank {
   fill: #fff;
 }
+/* 내 주변 추천: 카드 + 바로 넣기 버튼 */
+.suggest-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.suggest-row .place-card {
+  flex: 1;
+  min-width: 0;
+}
+.suggest-row__add {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-ink);
+  color: #fff;
+}
 .nearby-head {
   display: flex;
   align-items: center;

@@ -33,6 +33,7 @@ export interface MyLocation {
   accuracyM: number;
 }
 export type LocationResult = { ok: true; location: MyLocation } | { ok: false; reason: 'denied' | 'unavailable' };
+const LOCATION_TIMEOUT_MS = 10_000;
 
 /**
  * 현재 위치를 한 번 조회한다. 위치는 이 기기 메모리에서만 쓰고 저장·전송하지 않는다(D-037).
@@ -44,7 +45,13 @@ export async function getMyLocation(): Promise<LocationResult> {
     try {
       const { Device, Accuracy, PermissionError } = await sdk();
       try {
-        const loc = await Device.getLocation({ accuracy: Accuracy.Balanced });
+        // getLocation은 권한 창을 스스로 띄우지 않고 오류만 낸다 → 허용 전이면 먼저 권한 창을 연다(공식 문서 Device.getLocation, D-050)
+        const status: string = await Device.getLocation.getPermission();
+        if (status !== 'allowed' && (await Device.getLocation.openPermissionDialog()) !== 'allowed') return { ok: false, reason: 'denied' };
+        const loc = await Promise.race([
+          Device.getLocation({ accuracy: Accuracy.Balanced }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('LOCATION_TIMEOUT')), LOCATION_TIMEOUT_MS)),
+        ]);
         return { ok: true, location: { lat: loc.coords.latitude, lng: loc.coords.longitude, accuracyM: loc.coords.accuracy } };
       } catch (e) {
         return { ok: false, reason: e instanceof PermissionError ? 'denied' : 'unavailable' };

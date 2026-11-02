@@ -11,8 +11,8 @@ name: Data Build
 
 on:
   schedule:
-    # 매주 월요일 03:17 KST (정각 혼잡 회피)
-    - cron: "17 18 * * 0"
+    # 매주 일요일 02:17 KST (정각 혼잡 회피). 예약 실행이 몇 시간 밀려도 평일 아침 API 지연을 피한다(D-047)
+    - cron: "17 17 * * 6"
   workflow_dispatch:
 
 permissions:
@@ -61,7 +61,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: 수집(영업 중만)
-        run: npm run fetch:api --workspace data-build -- --open-code "$OPEN_CODE" --regions "${{ matrix.sido }}" --date run
+        # API 장애가 재시도 한도를 넘기면 10분 쉬고 같은 폴더에서 이어 받는다(D-047). 전부 실패하면 배포하지 않는다.
+        run: |
+          for attempt in 1 2 3 4; do
+            npm run fetch:api --workspace data-build -- --open-code "$OPEN_CODE" --regions "${{ matrix.sido }}" --date run && exit 0
+            [ "$attempt" -lt 4 ] && { echo "::warning::수집 중단 — 10분 뒤 이어 받기 ($attempt/3)"; sleep 600; }
+          done
+          exit 1
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
           OPEN_CODE: ${{ vars.RESTAURANT_OPEN_CODE }}

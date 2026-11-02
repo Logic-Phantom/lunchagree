@@ -8,6 +8,18 @@ export const WALK_METERS_PER_MIN = 75;
 export const MAX_RECOMMENDATIONS = 3;
 /** 공공데이터 후보를 찾는 기준점 반경(m) — data-build 샤드 반경과 같다. */
 export const PLACE_RADIUS_M = 1000;
+/** 지도에 그리는 최대 핀 수(가까운 순). 도심은 반경 1km에 2,500곳이 넘어 다 그리면 누를 수 없다. */
+export const MAP_MAX_PINS = 100;
+/** 지도 반경·거리 링(m). */
+export const MAP_RING_STEPS_M: readonly number[] = [250, 500, 1000];
+/** 후보 추가 시트의 주변 목록 최대 행 수. 나머지는 검색으로 찾는다. */
+export const NEARBY_LIST_MAX = 60;
+/** 주변 추천을 한 번에 보여 주는 수. */
+export const SUGGEST_PAGE_SIZE = 5;
+/** 아무도 고르지 않은 종류를 한 번에 보여 주는 최대 수(가까운 곳이 한 종류로 몰리지 않게). */
+export const SUGGEST_PER_TAG_MAX = 2;
+/** 누군가 원했을 때만 주변 추천에 넣는 종류(점심 식사 후보가 아닌 곳). */
+export const SUGGEST_SKIP_TAGS_UNLESS_LIKED: readonly string[] = ['cafe'];
 
 /** 점수 가중치(합 1). 점수 숫자는 화면에 노출하지 않는다. */
 export const SCORE_WEIGHTS = { like: 0.7, distance: 0.3 } as const;

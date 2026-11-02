@@ -28,8 +28,11 @@
 `score = 0.7 × like + 0.3 × distance`
 - `like` = 후보 태그 중 가장 큰 가중치 ÷ 조건 입력 인원 (0~1)
 - `distance` = `1 − 도보분 ÷ (걷기한도 ?? 15)`, 좌표 모르면 0
-- 도보분 = `ceil(직선거리 × 1.3 ÷ 75)`, 직선거리는 **후보를 넣은 사람의 현재 위치** 기준(좌표는 저장하지 않고 분만 저장), 항상 "(추정)"
+- 도보분 = `ceil(직선거리 × 1.3 ÷ 75)`, 직선거리는 **보는 사람의 현재 위치 ↔ 식당 공개 좌표**(기기 안에서만 계산, D-041), 항상 "(추정)"
 - 정렬: 점수 ↓ → 도보분 ↑(모름은 뒤) → 이름 → id (결정적)
+
+## 4-1. 내 주변 추천 (D-048)
+방 후보가 되기 전의 주변 음식점에 2·4절을 그대로 적용해 5곳씩 보여 준다(`domain/nearby.ts`). 추가 규칙: 종류 미상 제외, 카페는 누가 원했을 때만, '메뉴 확인 필요'는 뒤로, 아무도 고르지 않은 종류는 한 번에 2곳까지. 가격은 공공데이터에 없어 예산으로 막지 않고 '가격 미확인'으로 표시한다.
 
 ## 5. 투표
 - 추천 상위 최대 3곳, 1인 1표, 바꾸면 덮어쓰기(서버 `(room_id, participant_id)` PK).
@@ -37,4 +40,4 @@
 - 방장만 투표 시작·마감 가능.
 
 ## 테스트
-`app/tests/domain.test.ts`(13), `packages/room-core/tests/room-core.test.ts`(13), `packages/room-core/supabase/tests/rls_test.sql`.
+`app/tests/domain.test.ts`(24), `packages/room-core/tests/room-core.test.ts`(13), `packages/room-core/supabase/tests/rls_test.sql`.
